@@ -1,6 +1,6 @@
 # Weighted Go
 
-A Go variant where each board intersection has a configurable weight. Implements Chinese-style area scoring where **Black_score + White_score = Total board weight**.
+A Go variant where each board intersection has a configurable weight. Implements area scoring that extends the Chinese rule.
 
 **This package provides tools for analyzing and scoring Go games with custom weight schemes. It does not offer gameplay.**
 
@@ -24,7 +24,31 @@ python -m weighted_go.gui.run_gui
 - **Display modes**: Stones Only, Territory Markers, Weight Heatmap
 - **Live scoring** with automatic territory calculation
 
-## CLI Tools
+## Weight Schemes
+
+The package includes three standard weight schemes:
+- **Uniform (Standard)**: All positions weight 1.0 (standard Go)
+- **Center: Square**: Moderate center bias with concentric square pattern
+- **Center: Diamond**: Strong center bias with concentric diamond pattern
+
+See [docs/weights.md](docs/weights.md) for formulas, visualizations, and examples.
+
+## Documentation
+
+- [docs/weights.md](docs/weights.md) - Weight scheme details and formulas
+- [CLAUDE.md](CLAUDE.md) - Development guide and architecture
+- [docs/AREA_SCORING.md](docs/AREA_SCORING.md) - Scoring algorithm details
+
+## Contributing
+
+**Coming Soon** - See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+---
+
+<details>
+<summary><h2>Advanced</h2></summary>
+
+### CLI Tools
 
 Analyze a game from SGF:
 ```bash
@@ -46,14 +70,14 @@ Scoring Results (Area Scoring)
 │ Center: Diamond      │   1627.5 │    1811.5 │     W+184.0  │   3439  │
 ```
 
-## Use as a Package
+### Use as a Package
 
-### Installation
+#### Installation
 ```bash
 pip install -e .
 ```
 
-### Basic Usage
+#### Basic Usage
 
 ```python
 from weighted_go import (
@@ -75,7 +99,7 @@ black_score, white_score = score(position, weights)
 print(f"Black: {black_score}, White: {white_score}")
 ```
 
-### Custom Weights
+#### Custom Weights
 
 ```python
 from weighted_go import FunctionWeight, BoardSize, score
@@ -90,18 +114,7 @@ weights = custom.as_matrix(BoardSize(19, 19))
 black_score, white_score = score(position, weights)
 ```
 
-See [docs/weights.md](docs/weights.md) for details on implemented weight schemes.
-
-## Weight Schemes
-
-The package includes three standard weight schemes:
-- **Uniform (Standard)**: All positions weight 1.0 (standard Go)
-- **Center: Square**: Moderate center bias with concentric square pattern
-- **Center: Diamond**: Strong center bias with concentric diamond pattern
-
-See [docs/weights.md](docs/weights.md) for formulas, visualizations, and examples.
-
-## Testing
+### Testing
 
 ```bash
 # All tests (71 total)
@@ -112,25 +125,4 @@ pytest tests/test_core.py -v        # 47 tests
 pytest tests/test_sgf_reader.py -v  # 24 tests
 ```
 
-## Examples
-
-```bash
-# Basic usage
-PYTHONPATH=. python examples/cli/basic_usage.py
-
-# SGF reading
-PYTHONPATH=. python examples/cli/sgf_usage.py
-
-# Weight system demonstration
-PYTHONPATH=. python examples/cli/weight_system_demo.py
-```
-
-## Documentation
-
-- [docs/weights.md](docs/weights.md) - Weight scheme details and formulas
-- [CLAUDE.md](CLAUDE.md) - Development guide and architecture
-- [docs/AREA_SCORING.md](docs/AREA_SCORING.md) - Scoring algorithm details
-
-## TODO
-
-- Build standalone applications (.app, .exe) for GUI distribution
+</details>
