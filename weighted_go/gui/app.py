@@ -103,12 +103,12 @@ class WeightedGoApp:
         control_container.columnconfigure(0, weight=1)
 
         # Canvas for scrolling
-        canvas = tk.Canvas(control_container, highlightthickness=0)
+        canvas = tk.Canvas(control_container, highlightthickness=0, borderwidth=0)
         canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # Scrollbar
         scrollbar = ttk.Scrollbar(control_container, orient=tk.VERTICAL, command=canvas.yview)
-        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E))
         canvas.configure(yscrollcommand=scrollbar.set)
 
         # Inner frame that holds all controls
