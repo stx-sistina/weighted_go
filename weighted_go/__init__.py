@@ -13,6 +13,10 @@ from .core import (
     Position,
     WeightMatrix,
     WeightFunc,
+    Weight,
+    BoardSize,
+    MatrixWeight,
+    FunctionWeight,
     find_group,
     has_liberties,
     count_liberties,
@@ -48,6 +52,15 @@ from .commons.resources import (
     get_symbol_legend,
 )
 
+from .commons.weights import (
+    UniformWeight,
+    CenterSquareWeight,
+    CenterDiamondWeight,
+    STANDARD_WEIGHTS,
+    get_weight_by_name,
+    list_weights,
+)
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -59,6 +72,17 @@ __all__ = [
     "Position",
     "WeightMatrix",
     "WeightFunc",
+    # Weight system
+    "Weight",
+    "BoardSize",
+    "MatrixWeight",
+    "FunctionWeight",
+    "UniformWeight",
+    "CenterSquareWeight",
+    "CenterDiamondWeight",
+    "STANDARD_WEIGHTS",
+    "get_weight_by_name",
+    "list_weights",
     # Core functions
     "find_group",
     "has_liberties",

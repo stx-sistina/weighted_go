@@ -43,6 +43,14 @@ from .visualization import (
     print_score_summary,
 )
 
+from .board_size import BoardSize
+
+from .weight import (
+    Weight,
+    MatrixWeight,
+    FunctionWeight,
+)
+
 __all__ = [
     # Core classes
     "Stone",
@@ -78,4 +86,9 @@ __all__ = [
     "get_board_string",
     "print_board_simple",
     "print_score_summary",
+    # Weight system
+    "Weight",
+    "BoardSize",
+    "MatrixWeight",
+    "FunctionWeight",
 ]

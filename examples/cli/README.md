@@ -30,3 +30,4 @@ python examples/cli/color_demo.py
 - **basic_usage.py** - Basic board creation, move placement, and scoring
 - **sgf_usage.py** - Loading and analyzing SGF files
 - **color_demo.py** - Terminal color capabilities demonstration
+- **weight_system_demo.py** - Weight system API and custom weight creation

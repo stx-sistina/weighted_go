@@ -108,35 +108,66 @@ print(f"Black: {black_score}, White: {white_score}")
 
 ## Weight Schemes
 
-### Uniform Weights
-All positions have weight 1 (standard Go):
+Weighted Go provides a flexible weight system with both high-level and low-level APIs.
+
+### Using Standard Weights
+
 ```python
-weights = uniform_weights(19, 19)
+from weighted_go import (
+    UniformWeight,
+    CenterSquareWeight,
+    CenterDiamondWeight,
+    BoardSize,
+)
+
+# Create a board size
+board = BoardSize(19, 19)
+
+# Use standard weights
+uniform = UniformWeight()
+center_sq = CenterSquareWeight()
+center_dia = CenterDiamondWeight()
+
+# Get weight matrix for scoring
+weights = center_sq.as_matrix(board)
+black_score, white_score = score(game_pos, weights)
 ```
 
-### Center Weights
-Moderate rewards for central positions:
-```python
-weights = center_weights(19, 19)
-```
-Formula: `w[i][j] = 1 + min(dist_from_top/bottom, dist_from_left/right)`
+### Standard Weight Schemes
 
-### Aggressive Center Weights
-Strong rewards for positions far from all corners:
-```python
-weights = aggressive_center_weights(19, 19)
-```
-Formula: `w[i][j] = 1 + min(i, rows-1-i) + min(j, cols-1-j)`
+**Uniform (Standard Go)**
+- All positions have weight 1.0
+- Total weight on 19x19: 361
+
+**Center: Square**
+- Moderate rewards for central positions
+- Formula: `w[i][j] = 1 + min(dist_from_row_edge, dist_from_col_edge)`
+- Forms concentric square pattern
+- Total weight on 19x19: 1,330
+
+**Center: Diamond**
+- Strong rewards for center
+- Formula: `w[i][j] = 1 + dist_from_row_edge + dist_from_col_edge`
+- Forms concentric diamond pattern
+- Total weight on 19x19: 3,439
 
 ### Custom Weights
-Define your own weight function:
-```python
-def custom_weight(pos):
-    i, j = pos
-    return i + j + 1
 
-black_score, white_score = score(game_pos, custom_weight)
+Create custom weight schemes using `FunctionWeight`:
+
+```python
+from weighted_go import FunctionWeight, BoardSize
+
+def edge_weight(row, col, board_size):
+    """Emphasize edges over center."""
+    dist = min(row, col, board_size.rows-1-row, board_size.cols-1-col)
+    return 10.0 - dist
+
+custom = FunctionWeight("Edge Emphasis", edge_weight)
+weights = custom.as_matrix(BoardSize(19, 19))
 ```
+
+See `examples/cli/weight_system_demo.py` for more examples.
 
 ## Testing
 
