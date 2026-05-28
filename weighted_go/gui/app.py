@@ -762,11 +762,14 @@ class WeightedGoApp:
         self.dead_black_label.grid_remove()
         self.dead_white_label.grid_remove()
         self.dead_clear_button.grid_remove()
-        self.display_separator.grid_remove()
-        self.display_title_label.grid_remove()
-        self.display_stones_radio.grid_remove()
+
+        # Hide territory markers option (invalid positions can't show territory)
+        # Keep Display Mode section visible (stones/heatmap still work)
         self.display_territory_radio.grid_remove()
-        self.display_heatmap_radio.grid_remove()
+
+        # Switch to stones view if currently showing territory
+        if self.display_var.get() == "territory":
+            self.display_var.set("stones")
 
         # Show editing mode section (positioned right after game file)
         for widget, widget_row in self.edit_mode_widgets:
@@ -819,11 +822,9 @@ class WeightedGoApp:
         self.dead_black_label.grid()
         self.dead_white_label.grid()
         self.dead_clear_button.grid()
-        self.display_separator.grid()
-        self.display_title_label.grid()
-        self.display_stones_radio.grid()
+
+        # Show territory markers option again
         self.display_territory_radio.grid()
-        self.display_heatmap_radio.grid()
 
         # Hide editing mode section
         for widget, _ in self.edit_mode_widgets:
