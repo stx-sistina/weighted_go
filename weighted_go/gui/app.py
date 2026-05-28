@@ -745,16 +745,18 @@ class WeightedGoApp:
         self.invalid_groups.clear()
         self.ghost_stone_pos = None
 
-        # Save backup for revert (position + metadata)
+        # Save backup for revert (position + metadata + board size)
         self.edit_session_backup = GamePosition(self.position.board.rows, self.position.board.cols)
         for i in range(self.position.board.rows):
             for j in range(self.position.board.cols):
                 stone = self.position.board.get((i, j))
                 self.edit_session_backup.board.set((i, j), stone)
 
-        # Also backup SGF metadata for proper revert after clear
+        # Also backup SGF metadata and board size for proper revert
         self.backup_original_file_name = self.original_file_name
         self.backup_next_stone_color = self.next_stone_color
+        self.backup_board_rows = self.position.board.rows
+        self.backup_board_cols = self.position.board.cols
 
         # Hide scoring controls
         self.edit_button.grid_remove()
@@ -967,9 +969,19 @@ class WeightedGoApp:
             return
 
         if messagebox.askyesno("Revert Changes", "Revert all changes made in this editing session?"):
-            # Restore from backup
-            for i in range(self.position.board.rows):
-                for j in range(self.position.board.cols):
+            # Check if board size changed
+            current_rows = self.position.board.rows
+            current_cols = self.position.board.cols
+            backup_rows = self.backup_board_rows
+            backup_cols = self.backup_board_cols
+
+            if current_rows != backup_rows or current_cols != backup_cols:
+                # Board size changed - need to recreate board
+                self.load_empty_board(backup_rows, backup_cols)
+
+            # Restore stones from backup
+            for i in range(self.edit_session_backup.board.rows):
+                for j in range(self.edit_session_backup.board.cols):
                     stone = self.edit_session_backup.board.get((i, j))
                     self.position.board.set((i, j), stone)
 
@@ -988,7 +1000,7 @@ class WeightedGoApp:
         # Create dialog for board size input
         dialog = tk.Toplevel(self.root)
         dialog.title("Set Board Size")
-        dialog.geometry("300x150")
+        dialog.geometry("320x200")
         dialog.transient(self.root)
         dialog.grab_set()
 
@@ -999,29 +1011,34 @@ class WeightedGoApp:
         dialog.geometry(f"+{x}+{y}")
 
         # Instructions
-        ttk.Label(dialog, text="Enter board size (1-25)", font=("Helvetica", 12)).pack(pady=10)
-        ttk.Label(dialog, text="Format: '19' for square or '13x9' for non-square",
-                 wraplength=280).pack(pady=5)
+        ttk.Label(dialog, text="Set Board Size (1-25)", font=("Helvetica", 12, "bold")).pack(pady=10)
 
-        # Entry field
-        entry_frame = ttk.Frame(dialog)
-        entry_frame.pack(pady=10)
-        size_entry = ttk.Entry(entry_frame, width=15)
-        size_entry.pack()
-        size_entry.insert(0, "19")
-        size_entry.focus()
+        # Input fields frame
+        input_frame = ttk.Frame(dialog)
+        input_frame.pack(pady=10)
+
+        # Height input
+        height_frame = ttk.Frame(input_frame)
+        height_frame.pack(pady=5)
+        ttk.Label(height_frame, text="Height:", width=8).pack(side=tk.LEFT, padx=5)
+        height_entry = ttk.Entry(height_frame, width=10)
+        height_entry.pack(side=tk.LEFT)
+        height_entry.insert(0, str(self.position.board.rows if self.position else "19"))
+        height_entry.focus()
+
+        # Width input
+        width_frame = ttk.Frame(input_frame)
+        width_frame.pack(pady=5)
+        ttk.Label(width_frame, text="Width:", width=8).pack(side=tk.LEFT, padx=5)
+        width_entry = ttk.Entry(width_frame, width=10)
+        width_entry.pack(side=tk.LEFT)
+        width_entry.insert(0, str(self.position.board.cols if self.position else "19"))
 
         def apply_size():
-            size_str = size_entry.get().strip()
             try:
-                # Parse board size
-                if 'x' in size_str.lower():
-                    parts = size_str.lower().split('x')
-                    if len(parts) != 2:
-                        raise ValueError("Invalid format")
-                    rows, cols = int(parts[0]), int(parts[1])
-                else:
-                    rows = cols = int(size_str)
+                # Parse board dimensions from separate fields
+                rows = int(height_entry.get().strip())
+                cols = int(width_entry.get().strip())
 
                 # Validate range
                 if not (1 <= rows <= 25 and 1 <= cols <= 25):
@@ -1032,12 +1049,16 @@ class WeightedGoApp:
                     black_count, white_count = self.position.board.count_stones()
                     if black_count > 0 or white_count > 0:
                         if not messagebox.askyesno("Clear Board",
-                            f"Changing board size will clear all stones and metadata.\nContinue?",
+                            "Changing board size will clear the board and lose all game info.\nContinue?",
                             parent=dialog):
                             return
 
                 # Create new board
                 self.load_empty_board(rows, cols)
+
+                # Reset next stone color to BLACK
+                self.next_stone_color = Stone.BLACK
+                self.update_edit_mode_label()
 
                 # Clear all metadata
                 self.original_file_name = ""
@@ -1058,7 +1079,7 @@ class WeightedGoApp:
 
             except ValueError:
                 messagebox.showerror("Invalid Size",
-                    f"Please enter a valid board size (1-25).\nFormat: '19' or '13x9'",
+                    "Please enter valid board dimensions (1-25).",
                     parent=dialog)
 
         # Buttons
@@ -1067,8 +1088,9 @@ class WeightedGoApp:
         ttk.Button(button_frame, text="OK", command=apply_size).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
 
-        # Bind Enter key
-        size_entry.bind("<Return>", lambda _: apply_size())
+        # Bind Enter key to both entry fields
+        height_entry.bind("<Return>", lambda _: apply_size())
+        width_entry.bind("<Return>", lambda _: apply_size())
 
     def on_edit_mode_changed(self):
         """Handle editing mode change."""
