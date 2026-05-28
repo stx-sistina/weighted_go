@@ -136,8 +136,5 @@ Thumbs.db
 # Project specific
 *.pyc
 
-# AI dev assistance
-CLAUDE.md
-
 # TODO
 TODO.md
