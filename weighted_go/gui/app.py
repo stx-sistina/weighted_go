@@ -306,20 +306,19 @@ class WeightedGoApp:
             ).grid(row=row, column=0, sticky=(tk.W, tk.E))
             row += 1
 
-        # Score display
-        ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=10
-        )
+        # Score display (scoring mode only)
+        self.score_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
+        self.score_separator.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
         row += 1
 
-        ttk.Label(control_frame, text="Score", font=("Helvetica", 12, "bold")).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5)
-        )
+        self.score_title_label = ttk.Label(control_frame, text="Score", font=("Helvetica", 12, "bold"))
+        self.score_title_label.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         row += 1
 
         score_frame = ttk.Frame(control_frame)
         score_frame.grid(row=row, column=0, sticky=(tk.W, tk.E))
         score_frame.columnconfigure(0, weight=1)
+        self.score_frame = score_frame
         row += 1
 
         self.score_black_label = ttk.Label(score_frame, text="Black: -")
@@ -364,43 +363,44 @@ class WeightedGoApp:
         row += 1
 
 
-        # Display mode
-        ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=10
-        )
+        # Display mode (scoring mode only)
+        self.display_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
+        self.display_separator.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
         row += 1
 
-        ttk.Label(control_frame, text="Display Mode", font=("Helvetica", 12, "bold")).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5)
-        )
+        self.display_title_label = ttk.Label(control_frame, text="Display Mode", font=("Helvetica", 12, "bold"))
+        self.display_title_label.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         row += 1
 
         self.display_var = tk.StringVar(value="stones")
-        ttk.Radiobutton(
+        self.display_stones_radio = ttk.Radiobutton(
             control_frame,
             text="Stones Only",
             variable=self.display_var,
             value="stones",
             command=self.redraw_board
-        ).grid(row=row, column=0, sticky=(tk.W, tk.E))
+        )
+        self.display_stones_radio.grid(row=row, column=0, sticky=(tk.W, tk.E))
         row += 1
 
-        ttk.Radiobutton(
+        self.display_territory_radio = ttk.Radiobutton(
             control_frame,
             text="Territory Markers",
             variable=self.display_var,
             value="territory",
             command=self.redraw_board
-        ).grid(row=row, column=0, sticky=(tk.W, tk.E))
+        )
+        self.display_territory_radio.grid(row=row, column=0, sticky=(tk.W, tk.E))
         row += 1
 
-        ttk.Radiobutton(
+        self.display_heatmap_radio = ttk.Radiobutton(
             control_frame,
             text="Weight Heatmap",
             variable=self.display_var,
             value="heatmap",
             command=self.redraw_board
-        ).grid(row=row, column=0, sticky=(tk.W, tk.E))
+        )
+        self.display_heatmap_radio.grid(row=row, column=0, sticky=(tk.W, tk.E))
         row += 1
 
     def setup_board_panel(self, parent):
@@ -753,15 +753,20 @@ class WeightedGoApp:
 
         # Hide scoring controls
         self.edit_button.grid_remove()
+        self.score_separator.grid_remove()
+        self.score_title_label.grid_remove()
+        self.score_frame.grid_remove()
         self.dead_separator.grid_remove()
         self.dead_title_label.grid_remove()
         self.dead_help_label.grid_remove()
         self.dead_black_label.grid_remove()
         self.dead_white_label.grid_remove()
         self.dead_clear_button.grid_remove()
-
-        # Hide edit button
-        self.edit_button.grid_remove()
+        self.display_separator.grid_remove()
+        self.display_title_label.grid_remove()
+        self.display_stones_radio.grid_remove()
+        self.display_territory_radio.grid_remove()
+        self.display_heatmap_radio.grid_remove()
 
         # Show editing mode section (positioned right after game file)
         for widget, widget_row in self.edit_mode_widgets:
@@ -805,12 +810,20 @@ class WeightedGoApp:
 
         # Show scoring controls
         self.edit_button.grid(row=self.edit_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
+        self.score_separator.grid()
+        self.score_title_label.grid()
+        self.score_frame.grid()
         self.dead_separator.grid()
         self.dead_title_label.grid()
         self.dead_help_label.grid()
         self.dead_black_label.grid()
         self.dead_white_label.grid()
         self.dead_clear_button.grid()
+        self.display_separator.grid()
+        self.display_title_label.grid()
+        self.display_stones_radio.grid()
+        self.display_territory_radio.grid()
+        self.display_heatmap_radio.grid()
 
         # Hide editing mode section
         for widget, _ in self.edit_mode_widgets:
