@@ -242,6 +242,10 @@ class WeightedGoApp:
                                         command=self.revert_changes)
         self.revert_button_row = row + 9
 
+        self.set_size_button = ttk.Button(control_frame, text="Set Board Size",
+                                          command=self.set_board_size)
+        self.set_size_button_row = row + 10
+
         # Don't grid editing mode widgets yet - they'll be shown when entering edit mode
         # Keep track of all editing mode widgets for easy show/hide
         self.edit_mode_widgets = [
@@ -255,10 +259,11 @@ class WeightedGoApp:
             (self.done_button, self.done_button_row),
             (self.clear_button, self.clear_button_row),
             (self.revert_button, self.revert_button_row),
+            (self.set_size_button, self.set_size_button_row),
         ]
 
         # Game info section starts after editing section
-        row += 10  # Skip past editing section
+        row += 11  # Skip past editing section (now includes Set Board Size button)
 
         # Game info section separator and title
         self.game_info_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
@@ -780,7 +785,7 @@ class WeightedGoApp:
             elif widget in (self.edit_help_label, self.alternating_frame,
                            self.edit_black_radio, self.edit_white_radio, self.edit_erase_radio):
                 widget.grid(row=widget_row, column=0, sticky=(tk.W, tk.E))
-            elif widget in (self.done_button, self.clear_button, self.revert_button):
+            elif widget in (self.done_button, self.clear_button, self.revert_button, self.set_size_button):
                 widget.grid(row=widget_row, column=0, sticky=(tk.W, tk.E), pady=5)
 
         self.update_edit_mode_label()
@@ -977,6 +982,93 @@ class WeightedGoApp:
             self.update_file_label()
             self.update_edit_mode_label()  # Update color indicator
             self.redraw_board()
+
+    def set_board_size(self):
+        """Set a new board size (clears board and metadata)."""
+        # Create dialog for board size input
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Set Board Size")
+        dialog.geometry("300x150")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Center the dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+
+        # Instructions
+        ttk.Label(dialog, text="Enter board size (1-25)", font=("Helvetica", 12)).pack(pady=10)
+        ttk.Label(dialog, text="Format: '19' for square or '13x9' for non-square",
+                 wraplength=280).pack(pady=5)
+
+        # Entry field
+        entry_frame = ttk.Frame(dialog)
+        entry_frame.pack(pady=10)
+        size_entry = ttk.Entry(entry_frame, width=15)
+        size_entry.pack()
+        size_entry.insert(0, "19")
+        size_entry.focus()
+
+        def apply_size():
+            size_str = size_entry.get().strip()
+            try:
+                # Parse board size
+                if 'x' in size_str.lower():
+                    parts = size_str.lower().split('x')
+                    if len(parts) != 2:
+                        raise ValueError("Invalid format")
+                    rows, cols = int(parts[0]), int(parts[1])
+                else:
+                    rows = cols = int(size_str)
+
+                # Validate range
+                if not (1 <= rows <= 25 and 1 <= cols <= 25):
+                    raise ValueError("Size must be between 1 and 25")
+
+                # Confirm if board has stones
+                if self.position:
+                    black_count, white_count = self.position.board.count_stones()
+                    if black_count > 0 or white_count > 0:
+                        if not messagebox.askyesno("Clear Board",
+                            f"Changing board size will clear all stones and metadata.\nContinue?",
+                            parent=dialog):
+                            return
+
+                # Create new board
+                self.load_empty_board(rows, cols)
+
+                # Clear all metadata
+                self.original_file_name = ""
+                self.position_modified = False
+                self.is_custom_game = False
+                self.sgf_properties = {}
+                self.clear_game_info()
+                self.file_label.config(text="Empty board", foreground=FILE_LABEL_EMPTY_COLOR)
+
+                # Clear invalid groups
+                self.invalid_groups.clear()
+
+                # Reset backup since board size changed
+                self.edit_session_backup = None
+
+                self.redraw_board()
+                dialog.destroy()
+
+            except ValueError:
+                messagebox.showerror("Invalid Size",
+                    f"Please enter a valid board size (1-25).\nFormat: '19' or '13x9'",
+                    parent=dialog)
+
+        # Buttons
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(pady=10)
+        ttk.Button(button_frame, text="OK", command=apply_size).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
+
+        # Bind Enter key
+        size_entry.bind("<Return>", lambda _: apply_size())
 
     def on_edit_mode_changed(self):
         """Handle editing mode change."""
