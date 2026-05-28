@@ -1,11 +1,33 @@
 """
-Board size representation for Weighted Go.
+Board representation for Weighted Go.
 
-BoardSize is a fundamental concept used throughout the system for representing
-board dimensions. It can be square (19x19) or rectangular (13x19).
+Contains the core board data structures: Stone, BoardSize, and Board.
 """
 
-from typing import Tuple
+from enum import Enum
+from typing import List, Tuple
+from copy import deepcopy
+
+
+class Stone(Enum):
+    """Stone color on the board."""
+    EMPTY = 0
+    BLACK = 1
+    WHITE = 2
+
+    def __str__(self):
+        return {Stone.EMPTY: ".", Stone.BLACK: "X", Stone.WHITE: "O"}[self]
+
+    def opponent(self) -> "Stone":
+        """Return the opponent's color."""
+        if self == Stone.BLACK:
+            return Stone.WHITE
+        elif self == Stone.WHITE:
+            return Stone.BLACK
+        return Stone.EMPTY
+
+
+Position = Tuple[int, int]
 
 
 class BoardSize:
@@ -121,3 +143,67 @@ class BoardSize:
     def standard_9(cls) -> 'BoardSize':
         """Create standard 9x9 board."""
         return cls(9, 9)
+
+
+class Board:
+    """Represents the game board."""
+
+    def __init__(self, rows: int, cols: int):
+        """
+        Create a new board.
+
+        Args:
+            rows: Number of rows
+            cols: Number of columns
+        """
+        self.rows = rows
+        self.cols = cols
+        self.grid = [[Stone.EMPTY for _ in range(cols)] for _ in range(rows)]
+
+    def is_valid(self, pos: Position) -> bool:
+        """Check if position is within board bounds."""
+        row, col = pos
+        return 0 <= row < self.rows and 0 <= col < self.cols
+
+    def get(self, pos: Position) -> Stone:
+        """Get the stone at the given position."""
+        if not self.is_valid(pos):
+            return Stone.EMPTY
+        row, col = pos
+        return self.grid[row][col]
+
+    def set(self, pos: Position, stone: Stone) -> None:
+        """Set the stone at the given position."""
+        if self.is_valid(pos):
+            row, col = pos
+            self.grid[row][col] = stone
+
+    def get_neighbors(self, pos: Position) -> List[Position]:
+        """Get the four orthogonal neighbors of a position."""
+        row, col = pos
+        neighbors = [
+            (row - 1, col),
+            (row + 1, col),
+            (row, col - 1),
+            (row, col + 1),
+        ]
+        return [n for n in neighbors if self.is_valid(n)]
+
+    def copy(self) -> "Board":
+        """Create a deep copy of the board."""
+        new_board = Board(self.rows, self.cols)
+        new_board.grid = deepcopy(self.grid)
+        return new_board
+
+    def __str__(self) -> str:
+        """String representation of the board."""
+        result = []
+        for row in self.grid:
+            result.append(" ".join(str(stone) for stone in row))
+        return "\n".join(result)
+
+    def count_stones(self) -> Tuple[int, int]:
+        """Count stones for each color. Returns (black_count, white_count)."""
+        black = sum(1 for row in self.grid for stone in row if stone == Stone.BLACK)
+        white = sum(1 for row in self.grid for stone in row if stone == Stone.WHITE)
+        return black, white

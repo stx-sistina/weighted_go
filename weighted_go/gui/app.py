@@ -12,15 +12,15 @@ Provides:
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from typing import Optional, Set, Tuple
+from typing import Optional, Set, Tuple, List
 from pathlib import Path
 
 from ..core import (
-    GamePosition, Stone,
-    uniform_weights, center_weights, aggressive_center_weights,
-    score, find_group,
+    GamePosition, Stone, BoardSize,
+    score, find_group, is_valid_position,
     read_sgf_file, parse_sgf_properties
 )
+from ..commons.weights import UniformWeight, CenterSquareWeight, CenterDiamondWeight
 from .board_renderer import BoardRenderer
 
 
@@ -29,9 +29,9 @@ class WeightedGoApp:
 
     # Weight schemes available
     WEIGHT_SCHEMES = {
-        "Uniform (Standard)": uniform_weights,
-        "Center: Square": center_weights,
-        "Center: Diamond": aggressive_center_weights,
+        "Uniform (Standard)": UniformWeight(),
+        "Center: Square": CenterSquareWeight(),
+        "Center: Diamond": CenterDiamondWeight(),
     }
 
     def __init__(self, root: tk.Tk):
@@ -52,6 +52,18 @@ class WeightedGoApp:
         self.dead_stones: Set[Tuple[int, int]] = set()  # Coordinates of dead stones
         self.sgf_properties: dict = {}  # SGF metadata
 
+        # Editing state
+        self.app_mode = "scoring"  # "scoring" or "editing"
+        self.edit_mode_var = tk.StringVar(value="alternating")
+        self.next_stone_color = Stone.BLACK
+        self.ghost_stone_pos: Optional[Tuple[int, int]] = None
+        self.invalid_groups: List[Set[Tuple[int, int]]] = []
+        self.position_modified = False  # Track if SGF-loaded position was edited
+        self.original_file_name = ""  # Store original SGF file name
+        self.is_custom_game = False  # Track if this is a user-created position (not from SGF)
+        self.edit_session_backup: Optional[GamePosition] = None  # Backup for revert
+        self.last_drag_pos: Optional[Tuple[int, int]] = None  # Track last position for drag editing
+
         # Board renderer
         self.renderer: Optional[BoardRenderer] = None
 
@@ -59,7 +71,7 @@ class WeightedGoApp:
         self.setup_ui()
 
         # Default: load uniform weights for 19x19 and create empty board
-        self.current_weights = uniform_weights(19, 19)
+        self.current_weights = UniformWeight()
         self.load_empty_board(19, 19)
 
     def setup_ui(self):
@@ -111,6 +123,26 @@ class WeightedGoApp:
             row=row, column=0, sticky=(tk.W, tk.E), pady=5
         )
         row += 1
+
+        # Edit Position button (shown in scoring mode)
+        self.edit_button = ttk.Button(control_frame, text="Edit Position",
+                                      command=self.enter_edit_mode)
+        self.edit_button.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
+        row += 1
+
+        # Done/Clear/Revert buttons (shown in editing mode)
+        self.done_button = ttk.Button(control_frame, text="Done Editing",
+                                      command=self.exit_edit_mode)
+        self.clear_button = ttk.Button(control_frame, text="Clear Board",
+                                       command=self.clear_board)
+        self.revert_button = ttk.Button(control_frame, text="Revert Changes",
+                                        command=self.revert_changes)
+        # Don't grid these yet - they'll be shown in editing mode
+        self.done_button_row = row
+        self.clear_button_row = row + 1
+        self.revert_button_row = row + 2
+        edit_buttons_row = row
+        row += 3  # Reserve space for these buttons
 
         # Game info section
         ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
@@ -190,20 +222,17 @@ class WeightedGoApp:
         self.score_result_label = ttk.Label(score_frame, text="Result: -", font=bold_font)
         self.score_result_label.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
 
-        # Dead group removal
-        ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=10
-        )
+        # Dead group removal (scoring mode only)
+        self.dead_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
+        self.dead_separator.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
         row += 1
 
-        ttk.Label(control_frame, text="Dead Stones", font=("Helvetica", 12, "bold")).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5)
-        )
+        self.dead_title_label = ttk.Label(control_frame, text="Dead Stones", font=("Helvetica", 12, "bold"))
+        self.dead_title_label.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         row += 1
 
-        ttk.Label(control_frame, text="Click stones to mark as dead", foreground="gray").grid(
-            row=row, column=0, sticky=(tk.W, tk.E)
-        )
+        self.dead_help_label = ttk.Label(control_frame, text="Click stones to mark as dead", foreground="gray")
+        self.dead_help_label.grid(row=row, column=0, sticky=(tk.W, tk.E))
         row += 1
 
         self.dead_black_label = ttk.Label(control_frame, text="Dead black: 0")
@@ -214,10 +243,70 @@ class WeightedGoApp:
         self.dead_white_label.grid(row=row, column=0, sticky=(tk.W, tk.E))
         row += 1
 
-        ttk.Button(control_frame, text="Clear Dead Stones", command=self.clear_dead_stones).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=5
-        )
+        self.dead_clear_button = ttk.Button(control_frame, text="Clear Dead Stones", command=self.clear_dead_stones)
+        self.dead_clear_button.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
+
+        # Editing Mode section (editing mode only - initially hidden)
+        edit_section_row = row
+
+        self.edit_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
+        self.edit_title_label = ttk.Label(control_frame, text="Editing Mode", font=("Helvetica", 12, "bold"))
+        self.edit_help_label = ttk.Label(control_frame, text="Click to place/remove stones", foreground="gray")
+
+        # Radio buttons for editing modes - Alternating with clickable color toggle
+        self.alternating_frame = ttk.Frame(control_frame)
+        self.edit_alternating_radio = ttk.Radiobutton(
+            self.alternating_frame,
+            text="Alternating",
+            variable=self.edit_mode_var,
+            value="alternating",
+            command=self.on_edit_mode_changed
+        )
+        self.edit_alternating_radio.pack(side=tk.LEFT)
+
+        # Clickable label for color toggle
+        self.alternating_color_label = ttk.Label(
+            self.alternating_frame,
+            text="(Next: ●)",
+            foreground="blue",
+            cursor="hand2"
+        )
+        self.alternating_color_label.pack(side=tk.LEFT)
+        self.alternating_color_label.bind("<Button-1>", lambda e: self.toggle_alternating_color())
+        self.edit_black_radio = ttk.Radiobutton(
+            control_frame,
+            text="Black",
+            variable=self.edit_mode_var,
+            value="black",
+            command=self.on_edit_mode_changed
+        )
+        self.edit_white_radio = ttk.Radiobutton(
+            control_frame,
+            text="White",
+            variable=self.edit_mode_var,
+            value="white",
+            command=self.on_edit_mode_changed
+        )
+        self.edit_erase_radio = ttk.Radiobutton(
+            control_frame,
+            text="Erase",
+            variable=self.edit_mode_var,
+            value="erase",
+            command=self.on_edit_mode_changed
+        )
+
+        # Don't grid these yet - they'll be shown in editing mode
+        self.edit_section_widgets = [
+            (self.edit_separator, edit_section_row, {"sticky": (tk.W, tk.E), "pady": 10}),
+            (self.edit_title_label, edit_section_row + 1, {"sticky": (tk.W, tk.E), "pady": (0, 5)}),
+            (self.edit_help_label, edit_section_row + 2, {"sticky": (tk.W, tk.E)}),
+            (self.alternating_frame, edit_section_row + 3, {"sticky": (tk.W, tk.E)}),
+            (self.edit_black_radio, edit_section_row + 4, {"sticky": (tk.W, tk.E)}),
+            (self.edit_white_radio, edit_section_row + 5, {"sticky": (tk.W, tk.E)}),
+            (self.edit_erase_radio, edit_section_row + 6, {"sticky": (tk.W, tk.E)}),
+        ]
+        row = edit_section_row + 7
 
         # Display mode
         ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
@@ -273,6 +362,14 @@ class WeightedGoApp:
         # Bind click events for dead stone marking
         self.canvas.bind("<Button-1>", self.on_canvas_click)
 
+        # Bind drag events for editing mode
+        self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
+
+        # Bind mouse motion for ghost stones
+        self.canvas.bind("<Motion>", self.on_canvas_motion)
+        self.canvas.bind("<Leave>", self.on_canvas_leave)
+
         # Bind resize event to fix board positioning
         self.canvas.bind("<Configure>", self.on_canvas_resize)
 
@@ -294,8 +391,7 @@ class WeightedGoApp:
         self.sgf_properties = {}
 
         # Update weights to match board size
-        weight_func = self.WEIGHT_SCHEMES[self.current_weight_name]
-        self.current_weights = weight_func(rows, cols)
+        self.current_weights = self.WEIGHT_SCHEMES[self.current_weight_name]
 
         # Update UI
         self.file_label.config(text="Empty board", foreground="gray")
@@ -328,16 +424,26 @@ class WeightedGoApp:
                 sgf_content = f.read()
 
             self.sgf_properties = parse_sgf_properties(sgf_content)
-            self.position = read_sgf_file(file_path)
+            self.position, last_move_color = read_sgf_file(file_path)
             self.dead_stones.clear()
+
+            # Track original filename for modification detection
+            self.original_file_name = Path(file_path).name
+            self.position_modified = False
+            self.is_custom_game = False  # Clear custom game flag when loading SGF
+
+            # Infer next stone color from last move (opponent of last move)
+            if last_move_color is not None:
+                self.next_stone_color = last_move_color.opponent()
+            else:
+                self.next_stone_color = Stone.BLACK  # Default if no moves
 
             # Update weights to match board size
             rows, cols = self.position.board.rows, self.position.board.cols
-            weight_func = self.WEIGHT_SCHEMES[self.current_weight_name]
-            self.current_weights = weight_func(rows, cols)
+            self.current_weights = self.WEIGHT_SCHEMES[self.current_weight_name]
 
             # Update UI
-            self.file_label.config(text=Path(file_path).name, foreground="black")
+            self.file_label.config(text=self.original_file_name, foreground="black")
             self.info_label.config(text=f"Board: {rows}×{cols}")
             self.update_game_info()
 
@@ -358,14 +464,12 @@ class WeightedGoApp:
         self.current_weight_name = self.weight_var.get()
 
         if self.position:
-            rows, cols = self.position.board.rows, self.position.board.cols
-            weight_func = self.WEIGHT_SCHEMES[self.current_weight_name]
-            self.current_weights = weight_func(rows, cols)
+            self.current_weights = self.WEIGHT_SCHEMES[self.current_weight_name]
             self.update_scores()
             self.redraw_board()
 
     def on_canvas_click(self, event):
-        """Handle click on board canvas for dead stone marking."""
+        """Handle click on board canvas."""
         if not self.position or not self.renderer:
             return
 
@@ -374,6 +478,23 @@ class WeightedGoApp:
         if coord is None:
             return
 
+        # Clear invalid group highlighting if any
+        if self.invalid_groups:
+            self.invalid_groups.clear()
+            self.redraw_board()
+
+        # Dispatch based on app mode
+        if self.app_mode == "editing":
+            # Set drag tracking for the clicked position (fixes first intersection not updating during drag)
+            mode = self.edit_mode_var.get()
+            if mode != "alternating":  # Drag modes
+                self.last_drag_pos = coord
+            self.handle_edit_click(coord)
+        else:  # scoring mode
+            self.handle_dead_stone_click(coord)
+
+    def handle_dead_stone_click(self, coord: Tuple[int, int]):
+        """Handle click for dead stone marking (scoring mode)."""
         row, col = coord
         stone = self.position.board.get((row, col))
 
@@ -534,6 +655,305 @@ class WeightedGoApp:
 
         self.score_result_label.config(text=f"Result: {result}")
 
+    def enter_edit_mode(self):
+        """Switch to editing mode."""
+        self.app_mode = "editing"
+        self.dead_stones.clear()
+        self.invalid_groups.clear()
+        self.ghost_stone_pos = None
+
+        # Save backup for revert (position + metadata)
+        self.edit_session_backup = GamePosition(self.position.board.rows, self.position.board.cols)
+        for i in range(self.position.board.rows):
+            for j in range(self.position.board.cols):
+                stone = self.position.board.get((i, j))
+                self.edit_session_backup.board.set((i, j), stone)
+
+        # Also backup SGF metadata for proper revert after clear
+        self.backup_original_file_name = self.original_file_name
+        self.backup_next_stone_color = self.next_stone_color
+
+        # Hide scoring controls
+        self.edit_button.grid_remove()
+        self.dead_separator.grid_remove()
+        self.dead_title_label.grid_remove()
+        self.dead_help_label.grid_remove()
+        self.dead_black_label.grid_remove()
+        self.dead_white_label.grid_remove()
+        self.dead_clear_button.grid_remove()
+
+        # Show editing controls
+        self.done_button.grid(row=self.done_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
+        self.clear_button.grid(row=self.clear_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
+        self.revert_button.grid(row=self.revert_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
+
+        for widget, row, kwargs in self.edit_section_widgets:
+            widget.grid(row=row, column=0, **kwargs)
+
+        self.update_edit_mode_label()
+        self.redraw_board()
+
+    def exit_edit_mode(self):
+        """Validate and exit editing mode."""
+        # Validate position
+        if not is_valid_position(self.position):
+            # Find invalid groups
+            self.invalid_groups = self.find_invalid_groups()
+            messagebox.showerror("Invalid Position",
+                f"Position has {len(self.invalid_groups)} group(s) with no liberties.\n"
+                "Invalid groups are highlighted in red.")
+            self.redraw_board()
+            return
+
+        # Valid - enter scoring mode
+        self.app_mode = "scoring"
+        self.ghost_stone_pos = None
+        self.invalid_groups.clear()
+
+        # Check if this is a custom game (has stones but no SGF origin)
+        if not self.original_file_name:
+            # Count stones to see if position is non-empty
+            black_count, white_count = self.position.board.count_stones()
+            if black_count > 0 or white_count > 0:
+                self.is_custom_game = True
+                self.update_file_label()
+
+        # Show scoring controls
+        self.edit_button.grid(row=self.done_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
+        self.dead_separator.grid()
+        self.dead_title_label.grid()
+        self.dead_help_label.grid()
+        self.dead_black_label.grid()
+        self.dead_white_label.grid()
+        self.dead_clear_button.grid()
+
+        # Hide editing controls
+        self.done_button.grid_remove()
+        self.clear_button.grid_remove()
+        self.revert_button.grid_remove()
+        for widget, _, _ in self.edit_section_widgets:
+            widget.grid_remove()
+
+        # Clear backup
+        self.edit_session_backup = None
+
+        self.update_scores()
+        self.redraw_board()
+
+    def handle_edit_click(self, coord: Tuple[int, int]):
+        """Handle click in editing mode."""
+        mode = self.edit_mode_var.get()
+        row, col = coord
+        current_stone = self.position.board.get(coord)
+
+        # Track if we actually made a change
+        changed = False
+
+        if mode == "alternating":
+            # Use validated placement
+            if current_stone != Stone.EMPTY:
+                return  # Can't place on occupied position
+
+            success = self.position.place_stone(coord, self.next_stone_color)
+            if success:
+                changed = True
+                # Alternate color
+                self.next_stone_color = self.next_stone_color.opponent()
+                self.update_edit_mode_label()
+            # If failed (suicide), ghost stone will show red X
+
+        elif mode == "black":
+            # Direct manipulation
+            if current_stone == Stone.BLACK:
+                self.position.board.set(coord, Stone.EMPTY)  # Remove
+                changed = True
+            elif current_stone != Stone.BLACK:
+                self.position.board.set(coord, Stone.BLACK)  # Place
+                changed = True
+
+        elif mode == "white":
+            if current_stone == Stone.WHITE:
+                self.position.board.set(coord, Stone.EMPTY)
+                changed = True
+            elif current_stone != Stone.WHITE:
+                self.position.board.set(coord, Stone.WHITE)
+                changed = True
+
+        elif mode == "erase":
+            if current_stone != Stone.EMPTY:
+                self.position.board.set(coord, Stone.EMPTY)
+                changed = True
+
+        # Mark position as modified if we changed something and it's an SGF-loaded position
+        if changed and self.original_file_name:
+            if not self.position_modified:
+                self.position_modified = True
+                self.update_file_label()
+
+        self.redraw_board()
+
+    def on_canvas_drag(self, event):
+        """Handle drag for continuous stone placement."""
+        if self.app_mode != "editing":
+            return
+
+        mode = self.edit_mode_var.get()
+        if mode == "alternating":  # No drag in alternating
+            return
+
+        coord = self.renderer.canvas_to_board(event.x, event.y)
+        if coord is None:
+            return
+
+        # Only edit if we moved to a different position (avoid redundant edits)
+        if coord == self.last_drag_pos:
+            return
+
+        self.last_drag_pos = coord
+        self.handle_edit_click(coord)
+
+    def on_canvas_motion(self, event):
+        """Handle mouse motion for ghost stone preview."""
+        if self.app_mode != "editing" or not self.position or not self.renderer:
+            if self.ghost_stone_pos is not None:
+                self.ghost_stone_pos = None
+                self.redraw_board()
+            return
+
+        coord = self.renderer.canvas_to_board(event.x, event.y)
+
+        # Update ghost stone position if changed
+        if coord != self.ghost_stone_pos:
+            self.ghost_stone_pos = coord
+            self.redraw_board()
+
+    def on_canvas_release(self, _event):
+        """Handle mouse button release - reset drag tracking."""
+        self.last_drag_pos = None
+
+    def on_canvas_leave(self, event):
+        """Clear ghost stone when mouse leaves canvas."""
+        if self.ghost_stone_pos is not None:
+            self.ghost_stone_pos = None
+            if self.app_mode == "editing":
+                self.redraw_board()
+        # Also reset drag tracking when leaving canvas
+        self.last_drag_pos = None
+
+    def clear_board(self):
+        """Clear all stones from the board."""
+        if messagebox.askyesno("Clear Board", "Remove all stones from the board?"):
+            for i in range(self.position.board.rows):
+                for j in range(self.position.board.cols):
+                    self.position.board.set((i, j), Stone.EMPTY)
+            self.invalid_groups.clear()
+
+            # Clear all game metadata
+            self.original_file_name = ""
+            self.position_modified = False
+            self.is_custom_game = False
+            self.file_label.config(text="Empty board", foreground="gray")
+
+            self.redraw_board()
+
+    def revert_changes(self):
+        """Revert position to the state when entering edit mode."""
+        if not self.edit_session_backup:
+            return
+
+        if messagebox.askyesno("Revert Changes", "Revert all changes made in this editing session?"):
+            # Restore from backup
+            for i in range(self.position.board.rows):
+                for j in range(self.position.board.cols):
+                    stone = self.edit_session_backup.board.get((i, j))
+                    self.position.board.set((i, j), stone)
+
+            # Restore SGF metadata (fixes issue when reverting after clear board)
+            self.original_file_name = self.backup_original_file_name
+            self.next_stone_color = self.backup_next_stone_color
+
+            self.invalid_groups.clear()
+            self.position_modified = False
+            self.update_file_label()
+            self.update_edit_mode_label()  # Update color indicator
+            self.redraw_board()
+
+    def on_edit_mode_changed(self):
+        """Handle editing mode change."""
+        self.update_edit_mode_label()
+        self.redraw_board()
+
+    def update_edit_mode_label(self):
+        """Update the alternating mode label with current color."""
+        color_symbol = "●" if self.next_stone_color == Stone.BLACK else "○"
+        self.alternating_color_label.config(text=f"(Next: {color_symbol})")
+
+    def toggle_alternating_color(self):
+        """Reverse the next stone color in alternating mode."""
+        self.next_stone_color = self.next_stone_color.opponent()
+        self.update_edit_mode_label()
+        self.redraw_board()  # Update ghost stone color
+
+    def update_file_label(self):
+        """Update file label to show modification status."""
+        if self.position_modified and self.original_file_name:
+            self.file_label.config(text=f"<Modified> {self.original_file_name}", foreground="black")
+        elif self.original_file_name:
+            self.file_label.config(text=self.original_file_name, foreground="black")
+        elif self.is_custom_game:
+            self.file_label.config(text="Custom game", foreground="black")
+        else:
+            self.file_label.config(text="Empty board", foreground="gray")
+
+    def find_invalid_groups(self) -> List[Set[Tuple[int, int]]]:
+        """Find all groups with no liberties."""
+        invalid = []
+        checked = set()
+
+        for i in range(self.position.board.rows):
+            for j in range(self.position.board.cols):
+                pos = (i, j)
+                stone = self.position.board.get(pos)
+
+                if stone != Stone.EMPTY and pos not in checked:
+                    group = find_group(self.position.board, pos)
+                    if group and len(group.liberties) == 0:
+                        invalid.append(group.stones)
+                    if group:
+                        checked.update(group.stones)
+
+        return invalid
+
+    def get_ghost_color(self) -> Stone:
+        """Get the color for ghost stone based on editing mode."""
+        mode = self.edit_mode_var.get()
+        if mode == "alternating":
+            return self.next_stone_color
+        elif mode == "black":
+            return Stone.BLACK
+        elif mode == "white":
+            return Stone.WHITE
+        else:  # erase
+            return Stone.EMPTY
+
+    def is_ghost_illegal(self) -> bool:
+        """Check if ghost stone position would be suicide (alternating mode only)."""
+        if self.edit_mode_var.get() != "alternating":
+            return False
+
+        if not self.ghost_stone_pos:
+            return False
+
+        # Only show red X for suicide moves, not for occupied positions
+        current = self.position.board.get(self.ghost_stone_pos)
+        if current != Stone.EMPTY:
+            return False  # Don't show red X for occupied - just don't show ghost
+
+        # Test if move would be suicide
+        test_pos = GamePosition(self.position.board.rows, self.position.board.cols)
+        test_pos.board = self.position.board.copy()
+        return not test_pos.place_stone(self.ghost_stone_pos, self.next_stone_color)
+
     def redraw_board(self):
         """Redraw the board display."""
         if not self.position or not self.renderer:
@@ -547,20 +967,38 @@ class WeightedGoApp:
         if display_mode == "heatmap":
             # Draw heatmap first (as background)
             self.renderer.draw_heatmap(self.current_weights)
-            # Then grid lines
-            self.renderer.draw_board(show_coordinates=True)
-            # Then stones on top
-            self.renderer.draw_stones(dead_stones=self.dead_stones)
+
+        # Draw board grid
+        self.renderer.draw_board(show_coordinates=True)
+
+        # In editing mode, draw invalid group highlights
+        if self.app_mode == "editing" and self.invalid_groups:
+            self.renderer.draw_invalid_groups(self.invalid_groups)
+
+        # Draw stones
+        if self.app_mode == "editing":
+            self.renderer.draw_stones()
         else:
-            # Draw board grid
-            self.renderer.draw_board(show_coordinates=True)
-
-            # Draw stones
             self.renderer.draw_stones(dead_stones=self.dead_stones)
 
-            # Draw territory markers if requested (with dead stones consideration)
-            if display_mode == "territory":
-                self.renderer.draw_territory(dead_stones=self.dead_stones)
+        # Draw territory only in scoring mode
+        if self.app_mode == "scoring" and display_mode == "territory":
+            self.renderer.draw_territory(dead_stones=self.dead_stones)
+
+        # Draw ghost stone in editing mode
+        if self.app_mode == "editing" and self.ghost_stone_pos:
+            # In alternating mode, don't show ghost on occupied positions
+            if self.edit_mode_var.get() == "alternating":
+                current = self.position.board.get(self.ghost_stone_pos)
+                if current != Stone.EMPTY:
+                    return  # Skip ghost stone on occupied positions
+
+            is_illegal = self.is_ghost_illegal()
+            self.renderer.draw_ghost_stone(
+                self.ghost_stone_pos,
+                self.get_ghost_color(),
+                show_illegal=is_illegal
+            )
 
 
 def main():

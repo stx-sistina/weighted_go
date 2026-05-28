@@ -6,7 +6,8 @@ Symbol definitions are in weighted_go.commons.resources.
 """
 
 from typing import Set, Tuple
-from .core import GamePosition, Stone, find_territory, Position
+from .board import Position, Stone
+from .core import GamePosition, find_territory
 from ..commons.resources import (
     SYMBOL_BLACK_STONE,
     SYMBOL_WHITE_STONE,
@@ -163,20 +164,31 @@ def print_board_simple(pos: GamePosition, show_coordinates: bool = False):
     print("\n".join(lines))
 
 
-def print_score_summary(pos: GamePosition, weight_func, weight_name: str = ""):
+def print_score_summary(pos: GamePosition, weight, weight_name: str = ""):
     """
     Print a summary of the game including board and score.
 
     Args:
         pos: GamePosition to analyze
-        weight_func: Weight function or matrix to use for scoring
-        weight_name: Name of the weighting scheme (for display)
+        weight: Weight object, weight function, or weight matrix to use for scoring
+        weight_name: Name of the weighting scheme (for display, optional if using Weight object)
     """
     from .core import score
+    from .weight import Weight
+    from .board import BoardSize
 
     print(f"{'='*60}")
-    if weight_name:
-        print(f"Weighting: {weight_name}")
+
+    # If weight is a Weight object, use its name
+    if isinstance(weight, Weight):
+        display_name = weight_name if weight_name else weight.name
+        weight_to_use = weight.as_matrix(BoardSize(pos.board.rows, pos.board.cols))
+    else:
+        display_name = weight_name if weight_name else "Custom"
+        weight_to_use = weight
+
+    if display_name:
+        print(f"Weighting: {display_name}")
     print(f"{'='*60}")
     print()
 
@@ -184,7 +196,7 @@ def print_score_summary(pos: GamePosition, weight_func, weight_name: str = ""):
     print()
 
     # Calculate score
-    black_score, white_score = score(pos, weight_func)
+    black_score, white_score = score(pos, weight_to_use)
 
     print(f"Score (Area Scoring):")
     print(f"  Black ({SYMBOL_BLACK_STONE}/{SYMBOL_BLACK_TERRITORY}): {black_score:.1f}")

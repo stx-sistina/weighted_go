@@ -4,7 +4,7 @@ Standard weight schemes for Weighted Go.
 This module contains the concrete weight implementations that ship with the package.
 """
 
-from ..core.board_size import BoardSize
+from ..core.board import BoardSize
 from ..core.weight import Weight, FunctionWeight
 
 

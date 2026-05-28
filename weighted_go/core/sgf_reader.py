@@ -6,7 +6,8 @@ Parses SGF files and returns the final position of the main path.
 
 import re
 from typing import Tuple, Optional
-from .core import GamePosition, Stone, is_valid_position
+from .board import Stone
+from .core import GamePosition, is_valid_position
 
 
 class SGFError(Exception):
@@ -147,7 +148,7 @@ def extract_main_path_moves(sgf_text: str) -> list:
     return moves
 
 
-def read_sgf(sgf_content: str) -> GamePosition:
+def read_sgf(sgf_content: str) -> Tuple[GamePosition, Optional[Stone]]:
     """
     Read an SGF file and return the final position of the main path.
 
@@ -155,12 +156,15 @@ def read_sgf(sgf_content: str) -> GamePosition:
         sgf_content: SGF file content as string
 
     Returns:
-        GamePosition representing the final board state
+        Tuple of (GamePosition, last_move_color) where last_move_color is
+        the color of the last move played (None if no moves)
 
     Raises:
         SGFError: If SGF format is invalid
         InvalidPositionError: If the final position is invalid (groups with no liberties)
     """
+    from typing import Tuple, Optional
+
     # Parse properties
     properties = parse_sgf_properties(sgf_content)
     board_size = properties.get('size', 19)
@@ -196,9 +200,11 @@ def read_sgf(sgf_content: str) -> GamePosition:
     # Extract and play moves
     moves = extract_main_path_moves(sgf_content)
 
+    last_move_color = None
     for color, sgf_pos in moves:
         row, col = sgf_to_coords(sgf_pos, pos.board.rows, pos.board.cols)
         stone = Stone.BLACK if color == 'B' else Stone.WHITE
+        last_move_color = stone
 
         # Use place_stone which handles captures and validation
         success = pos.place_stone((row, col), stone)
@@ -209,10 +215,10 @@ def read_sgf(sgf_content: str) -> GamePosition:
     if not is_valid_position(pos):
         raise InvalidPositionError("Final position is invalid: some groups have no liberties")
 
-    return pos
+    return pos, last_move_color
 
 
-def read_sgf_file(filepath: str) -> GamePosition:
+def read_sgf_file(filepath: str) -> Tuple[GamePosition, Optional[Stone]]:
     """
     Read an SGF file from disk and return the final position.
 
@@ -220,7 +226,8 @@ def read_sgf_file(filepath: str) -> GamePosition:
         filepath: Path to the SGF file
 
     Returns:
-        GamePosition representing the final board state
+        Tuple of (GamePosition, last_move_color) where last_move_color is
+        the color of the last move played (None if no moves)
 
     Raises:
         SGFError: If SGF format is invalid

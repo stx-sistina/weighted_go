@@ -4,25 +4,22 @@ Core logic for Weighted Go.
 This module contains the fundamental game logic, SGF parsing, and visualization.
 """
 
-from .core import (
+from .board import (
     Stone,
     Board,
-    GamePosition,
-    Group,
+    BoardSize,
     Position,
-    WeightMatrix,
-    WeightFunc,
+)
+
+from .core import (
+    Group,
     find_group,
     has_liberties,
     count_liberties,
     remove_group,
-    uniform_weights,
-    center_weights,
-    aggressive_center_weights,
+    GamePosition,
     score,
-    score_with_territory,
     find_territory,
-    matrix_to_func,
     is_valid_position,
 )
 
@@ -43,8 +40,6 @@ from .visualization import (
     print_score_summary,
 )
 
-from .board_size import BoardSize
-
 from .weight import (
     Weight,
     MatrixWeight,
@@ -52,26 +47,21 @@ from .weight import (
 )
 
 __all__ = [
-    # Core classes
+    # Board
     "Stone",
     "Board",
-    "GamePosition",
-    "Group",
+    "BoardSize",
     "Position",
-    "WeightMatrix",
-    "WeightFunc",
+    # Core classes
+    "Group",
+    "GamePosition",
     # Core functions
     "find_group",
     "has_liberties",
     "count_liberties",
     "remove_group",
-    "uniform_weights",
-    "center_weights",
-    "aggressive_center_weights",
     "score",
-    "score_with_territory",
     "find_territory",
-    "matrix_to_func",
     "is_valid_position",
     # SGF reader
     "read_sgf",
@@ -88,7 +78,6 @@ __all__ = [
     "print_score_summary",
     # Weight system
     "Weight",
-    "BoardSize",
     "MatrixWeight",
     "FunctionWeight",
 ]

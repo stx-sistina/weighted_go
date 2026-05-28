@@ -6,7 +6,9 @@ import sys
 from weighted_go import (
     read_sgf_file,
     print_board_with_territory, get_board_string,
-    score, uniform_weights, center_weights, aggressive_center_weights
+    score,
+    UniformWeight, CenterSquareWeight, CenterDiamondWeight,
+    BoardSize,
 )
 from weighted_go.commons.resources import get_symbol_legend
 
@@ -20,7 +22,7 @@ def analyze_game(sgf_path: str, show_full_boards: bool = False):
         show_full_boards: Whether to show full boards for each weighting
     """
     # Read the game
-    pos = read_sgf_file(sgf_path)
+    pos, last_move_color = read_sgf_file(sgf_path)
     rows, cols = pos.board.rows, pos.board.cols
 
     # Fixed banner width
@@ -77,16 +79,17 @@ def analyze_game(sgf_path: str, show_full_boards: bool = False):
     print()
 
     # Calculate scores with all three weighting schemes
+    board_size = BoardSize(rows, cols)
     weights_schemes = [
-        ("Uniform (Standard)", uniform_weights(rows, cols)),
-        ("Center Weights", center_weights(rows, cols)),
-        ("Aggressive Weights", aggressive_center_weights(rows, cols)),
+        ("Uniform (Standard)", UniformWeight()),
+        ("Center Weights", CenterSquareWeight()),
+        ("Aggressive Weights", CenterDiamondWeight()),
     ]
 
     results = []
-    for name, weights in weights_schemes:
-        black_score, white_score = score(pos, weights)
-        total = sum(sum(row) for row in weights) if isinstance(weights, list) else None
+    for name, weight in weights_schemes:
+        black_score, white_score = score(pos, weight)
+        total = weight.total_weight(board_size)
         results.append((name, black_score, white_score, total))
 
     # Print results table with fixed column widths
@@ -124,12 +127,12 @@ def analyze_game(sgf_path: str, show_full_boards: bool = False):
 
     # Show detailed boards for each weighting if requested
     if show_full_boards:
-        for name, weights in weights_schemes:
+        for name, weight in weights_schemes:
             print(f"\n{'=' * 70}")
             print(f"{name} - Detailed View")
             print(f"{'=' * 70}\n")
 
-            black_score, white_score = score(pos, weights)
+            black_score, white_score = score(pos, weight)
             print(get_board_string(pos, show_coordinates=True))
             print(f"\nScore: Black={black_score:.1f}, White={white_score:.1f}, Result={'W' if white_score > black_score else 'B'}+{abs(white_score - black_score):.1f}")
 

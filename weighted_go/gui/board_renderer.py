@@ -404,22 +404,20 @@ class BoardRenderer:
                         tags="territory"
                     )
 
-    def draw_heatmap(self, weights):
+    def draw_heatmap(self, weight):
         """
         Draw weight heatmap.
 
         Args:
-            weights: Weight matrix or weight function
+            weight: Weight object
         """
         if not self.board:
             return
 
-        # Convert weights to matrix if it's a function
-        if callable(weights):
-            weight_matrix = [[weights(r, c) for c in range(self.board.cols)]
-                           for r in range(self.board.rows)]
-        else:
-            weight_matrix = weights
+        # Get weight matrix from Weight object
+        from ..core import BoardSize
+        board_size = BoardSize(self.board.rows, self.board.cols)
+        weight_matrix = weight.as_matrix(board_size)
 
         # Find min/max for color mapping
         all_weights = [w for row in weight_matrix for w in row]
@@ -515,3 +513,206 @@ class BoardRenderer:
 
         r, g, b = colorsys.hsv_to_rgb(hue / 360, saturation, brightness)
         return f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+
+    def blend_color(self, color_hex: str, alpha: float) -> str:
+        """
+        Blend a color with the goban background color using alpha blending.
+
+        Args:
+            color_hex: Hex color string (e.g., "#000000")
+            alpha: Alpha value (0.0 = fully transparent, 1.0 = fully opaque)
+
+        Returns:
+            Blended color as hex string
+        """
+        # Goban background color
+        bg_color = "#DCB35C"
+
+        # Parse hex colors to RGB
+        def hex_to_rgb(h):
+            h = h.lstrip('#')
+            return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+        fg_r, fg_g, fg_b = hex_to_rgb(color_hex)
+        bg_r, bg_g, bg_b = hex_to_rgb(bg_color)
+
+        # Alpha blending: result = alpha * foreground + (1 - alpha) * background
+        blend_r = int(alpha * fg_r + (1 - alpha) * bg_r)
+        blend_g = int(alpha * fg_g + (1 - alpha) * bg_g)
+        blend_b = int(alpha * fg_b + (1 - alpha) * bg_b)
+
+        return f"#{blend_r:02x}{blend_g:02x}{blend_b:02x}"
+
+    def draw_ghost_stone(self, pos: Tuple[int, int], color, show_illegal: bool = False):
+        """
+        Draw semi-transparent ghost stone at position.
+
+        Args:
+            pos: Board position (row, col)
+            color: Stone color
+            show_illegal: Whether to draw red X for illegal moves
+        """
+        from ..core import Stone
+
+        if color == Stone.EMPTY:
+            return  # No ghost for erase mode
+
+        row, col = pos
+        x, y = self.board_to_canvas(row, col)
+
+        stone_color = "#000000" if color == Stone.BLACK else "#FFFFFF"
+        # Ghost stone opacity: 45% for black, 20% for white
+        alpha = 0.45 if color == Stone.BLACK else 0.20
+        ghost_color = self.blend_color(stone_color, alpha)
+
+        radius = self.cell_size * 0.45
+        self.canvas.create_oval(
+            x - radius, y - radius,
+            x + radius, y + radius,
+            fill=ghost_color, outline="",
+            tags="ghost"
+        )
+
+        if show_illegal:
+            # Draw red X over ghost stone
+            offset = radius * 0.6
+            self.canvas.create_line(
+                x - offset, y - offset, x + offset, y + offset,
+                fill="#FF0000", width=2, tags="ghost"
+            )
+            self.canvas.create_line(
+                x - offset, y + offset, x + offset, y - offset,
+                fill="#FF0000", width=2, tags="ghost"
+            )
+
+    def draw_invalid_groups(self, invalid_groups):
+        """
+        Draw red polygon outline tracing the exact shape of invalid groups.
+
+        Args:
+            invalid_groups: List of sets of stone positions with no liberties
+        """
+        for group_stones in invalid_groups:
+            if not group_stones:
+                continue
+
+            # Build the outline polygon by finding the perimeter
+            outline_points = self._trace_group_outline(group_stones)
+
+            if not outline_points:
+                continue
+
+            # Convert board coordinates to canvas coordinates
+            canvas_points = []
+            for row, col in outline_points:
+                x, y = self.board_to_canvas(row, col)
+                canvas_points.extend([x, y])
+
+            # Draw the polygon outline
+            if len(canvas_points) >= 6:  # Need at least 3 points (6 coordinates)
+                self.canvas.create_polygon(
+                    canvas_points,
+                    outline="#FF0000",
+                    fill="",
+                    width=3,
+                    tags="invalid_bounds"
+                )
+
+    def _trace_group_outline(self, group_stones):
+        """
+        Trace the outline of a group of stones as a polygon.
+
+        Args:
+            group_stones: Set of (row, col) positions
+
+        Returns:
+            List of (row, col) coordinates forming the outline polygon
+        """
+        if not group_stones:
+            return []
+
+        # For each stone, create a square around it, then merge all squares
+        # We'll trace the outer edge by finding all edge segments that are on the boundary
+
+        # Create edge segments (each stone contributes 4 edges of a square)
+        # Edge format: ((r1, c1), (r2, c2), direction)
+        # We use half-coordinates to represent edges between stones
+        edges = set()
+
+        for row, col in group_stones:
+            # Offset for creating a square around the stone
+            offset = 0.5
+
+            # Four corners of the square around this stone
+            corners = [
+                (row - offset, col - offset),  # top-left
+                (row - offset, col + offset),  # top-right
+                (row + offset, col + offset),  # bottom-right
+                (row + offset, col - offset),  # bottom-left
+            ]
+
+            # Four edges of the square
+            square_edges = [
+                (corners[0], corners[1]),  # top edge
+                (corners[1], corners[2]),  # right edge
+                (corners[2], corners[3]),  # bottom edge
+                (corners[3], corners[0]),  # left edge
+            ]
+
+            for edge in square_edges:
+                # Use frozenset for undirected edge
+                edge_key = frozenset(edge)
+                if edge_key in edges:
+                    # Edge already exists from another stone - it's internal, remove it
+                    edges.remove(edge_key)
+                else:
+                    # New edge - add it
+                    edges.add(edge_key)
+
+        if not edges:
+            return []
+
+        # Now trace the outline by connecting the edges
+        # Convert edges back to ordered pairs
+        edge_list = [tuple(sorted(edge)) for edge in edges]
+
+        # Build adjacency map
+        adjacency = {}
+        for p1, p2 in edge_list:
+            if p1 not in adjacency:
+                adjacency[p1] = []
+            if p2 not in adjacency:
+                adjacency[p2] = []
+            adjacency[p1].append(p2)
+            adjacency[p2].append(p1)
+
+        # Trace the outline starting from any point
+        if not adjacency:
+            return []
+
+        start_point = next(iter(adjacency))
+        outline = [start_point]
+        visited_edges = set()
+        current = start_point
+
+        while True:
+            neighbors = adjacency.get(current, [])
+            next_point = None
+
+            for neighbor in neighbors:
+                edge = frozenset([current, neighbor])
+                if edge not in visited_edges:
+                    next_point = neighbor
+                    visited_edges.add(edge)
+                    break
+
+            if next_point is None:
+                break
+
+            outline.append(next_point)
+            current = next_point
+
+            if current == start_point:
+                break
+
+        return outline

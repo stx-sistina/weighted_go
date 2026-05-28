@@ -95,7 +95,7 @@ class TestExtractMoves:
 class TestReadSGF:
     def test_read_empty_game(self):
         sgf = "(;GM[1]FF[4]SZ[9])"
-        pos = read_sgf(sgf)
+        pos, _ = read_sgf(sgf)
         assert pos.board.rows == 9
         assert pos.board.cols == 9
         # All positions should be empty
@@ -106,7 +106,7 @@ class TestReadSGF:
     def test_read_simple_game(self):
         # Simple game on 5x5 board
         sgf = "(;SZ[5];B[bb];W[cc];B[cb])"
-        pos = read_sgf(sgf)
+        pos, _ = read_sgf(sgf)
 
         # Check stones are in correct positions
         # In SGF: first char = column, second char = row
@@ -120,7 +120,7 @@ class TestReadSGF:
     def test_read_with_handicap(self):
         # Game with handicap stones
         sgf = "(;SZ[9]HA[2]AB[cc][gg];W[ee])"
-        pos = read_sgf(sgf)
+        pos, _ = read_sgf(sgf)
 
         # Handicap stones
         assert pos.board.get((2, 2)) == Stone.BLACK
@@ -131,7 +131,7 @@ class TestReadSGF:
     def test_read_with_capture(self):
         # Set up a capture scenario
         sgf = "(;SZ[5];B[bb];W[bc];B[cb];W[cc];B[ac];W[bd];B[ad];W[cd];B[ab])"
-        pos = read_sgf(sgf)
+        pos, _ = read_sgf(sgf)
 
         # After this sequence, some stones should be captured
         # The final position should be valid
@@ -160,7 +160,7 @@ class TestReadSGF:
         ;W[cg]
         ;B[ge]
         ;W[ec])"""
-        pos = read_sgf(sgf)
+        pos, _ = read_sgf(sgf)
 
         assert pos.board.rows == 9
         assert pos.board.get((4, 4)) == Stone.BLACK  # ee
@@ -171,7 +171,7 @@ class TestReadSGF:
         # SGF with non-square board (5 rows, 9 cols)
         # 'ia' = col i(8), row a(0) = (0, 8)
         sgf = "(;SZ[5:9];B[aa];W[ia])"
-        pos = read_sgf(sgf)
+        pos, _ = read_sgf(sgf)
 
         assert pos.board.rows == 5
         assert pos.board.cols == 9
@@ -189,7 +189,7 @@ class TestRealWorldSGF:
         ;W[dd]
         ;B[fc]
         ;W[cn])"""
-        pos = read_sgf(sgf)
+        pos, _ = read_sgf(sgf)
 
         # Check some key stones (SGF format: column-row)
         assert pos.board.get((3, 15)) == Stone.BLACK  # pd = col p(15), row d(3)

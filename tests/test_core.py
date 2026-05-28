@@ -4,11 +4,13 @@ Tests for weighted_go.core module.
 
 import pytest
 from weighted_go.core import (
-    Stone, Board, GamePosition, Group,
+    Stone, Board, BoardSize, GamePosition, Group,
     find_group, has_liberties, count_liberties, remove_group,
-    uniform_weights, center_weights, aggressive_center_weights,
-    score, score_with_territory,
-    find_territory, matrix_to_func, is_valid_position
+    score,
+    find_territory, is_valid_position
+)
+from weighted_go.commons.weights import (
+    UniformWeight, CenterSquareWeight, CenterDiamondWeight
 )
 
 
@@ -243,13 +245,17 @@ class TestGamePosition:
 
 class TestWeights:
     def test_uniform_weights(self):
-        weights = uniform_weights(3, 3)
+        weight = UniformWeight()
+        board_size = BoardSize(3, 3)
+        weights = weight.as_matrix(board_size)
         for row in weights:
             for w in row:
                 assert w == 1.0
 
     def test_center_weights(self):
-        weights = center_weights(5, 5)
+        weight = CenterSquareWeight()
+        board_size = BoardSize(5, 5)
+        weights = weight.as_matrix(board_size)
         # Corner should have weight 1
         assert weights[0][0] == 1.0
         # Center should have weight 3
@@ -258,14 +264,18 @@ class TestWeights:
         assert weights[0][2] == 1.0
 
     def test_center_weights_9x9(self):
-        weights = center_weights(9, 9)
+        weight = CenterSquareWeight()
+        board_size = BoardSize(9, 9)
+        weights = weight.as_matrix(board_size)
         # Corner should be 1
         assert weights[0][0] == 1.0
         # Center should be 5
         assert weights[4][4] == 5.0
 
     def test_uniform_weights_non_square(self):
-        weights = uniform_weights(5, 9)
+        weight = UniformWeight()
+        board_size = BoardSize(5, 9)
+        weights = weight.as_matrix(board_size)
         assert len(weights) == 5
         assert len(weights[0]) == 9
         for row in weights:
@@ -273,7 +283,9 @@ class TestWeights:
                 assert w == 1.0
 
     def test_center_weights_non_square(self):
-        weights = center_weights(5, 9)
+        weight = CenterSquareWeight()
+        board_size = BoardSize(5, 9)
+        weights = weight.as_matrix(board_size)
         # Corners should be 1
         assert weights[0][0] == 1.0
         assert weights[0][8] == 1.0
@@ -286,7 +298,9 @@ class TestWeights:
         assert weights[2][4] == 3.0
 
     def test_aggressive_center_weights_basic(self):
-        weights = aggressive_center_weights(5, 5)
+        weight = CenterDiamondWeight()
+        board_size = BoardSize(5, 5)
+        weights = weight.as_matrix(board_size)
         # Corner (0,0): 1 + min(0,4) + min(0,4) = 1 + 0 + 0 = 1
         assert weights[0][0] == 1.0
         # (1,1): 1 + min(1,3) + min(1,3) = 1 + 1 + 1 = 3
@@ -299,7 +313,9 @@ class TestWeights:
         assert weights[4][4] == 1.0
 
     def test_aggressive_center_weights_19x19(self):
-        weights = aggressive_center_weights(19, 19)
+        weight = CenterDiamondWeight()
+        board_size = BoardSize(19, 19)
+        weights = weight.as_matrix(board_size)
         # Corner (0,0): 1 + 0 + 0 = 1
         assert weights[0][0] == 1.0
         # Center (9,9): 1 + min(9,9) + min(9,9) = 1 + 9 + 9 = 19
@@ -308,7 +324,9 @@ class TestWeights:
         assert weights[18][18] == 1.0
 
     def test_aggressive_center_weights_non_square(self):
-        weights = aggressive_center_weights(5, 9)
+        weight = CenterDiamondWeight()
+        board_size = BoardSize(5, 9)
+        weights = weight.as_matrix(board_size)
         # All four corners should be 1
         assert weights[0][0] == 1.0  # top-left
         assert weights[0][8] == 1.0  # top-right
@@ -328,8 +346,8 @@ class TestScoring:
         pos.board.set((0, 1), Stone.BLACK)
         pos.board.set((1, 1), Stone.WHITE)
 
-        weights = uniform_weights(3, 3)
-        black_score, white_score = score(pos, weights)
+        weight = UniformWeight()
+        black_score, white_score = score(pos, weight)
 
         # Area scoring: scores include stones + territory
         # Total should equal board size (9)
@@ -343,11 +361,11 @@ class TestScoring:
         pos.board.set((2, 2), Stone.BLACK)  # Center, weight 3
         pos.board.set((0, 0), Stone.WHITE)  # Corner, weight 1
 
-        weights = center_weights(5, 5)
-        black_score, white_score = score(pos, weights)
+        weight = CenterSquareWeight()
+        black_score, white_score = score(pos, weight)
 
         # With area scoring, total should equal sum of all weights
-        total_weights = sum(sum(row) for row in weights)
+        total_weights = weight.total_weight(BoardSize(5, 5))
         assert black_score + white_score == total_weights
         # Black should have center advantage with center weights
         assert black_score > white_score
@@ -358,10 +376,13 @@ class TestScoring:
         pos.board.set((1, 1), Stone.WHITE)
 
         # Custom weight function: weight = row + col
-        def weight_func(p):
-            return float(p[0] + p[1])
+        from weighted_go.core.weight import FunctionWeight
+        weight = FunctionWeight(
+            name="Row+Col",
+            func=lambda row, col, board_size: float(row + col)
+        )
 
-        black_score, white_score = score(pos, weight_func)
+        black_score, white_score = score(pos, weight)
 
         # Total should equal sum of all weights: 0+1+2+1+2+3+2+3+4 = 18
         assert black_score + white_score == 18.0
@@ -380,18 +401,19 @@ class TestScoring:
         pos.board.set((2, 2), Stone.BLACK)
 
         # Test with all three weight schemes
-        weights_uniform = uniform_weights(5, 5)
-        b_u, w_u = score(pos, weights_uniform)
+        weight_uniform = UniformWeight()
+        b_u, w_u = score(pos, weight_uniform)
         assert b_u + w_u == 25.0  # 5x5 board
 
-        weights_center = center_weights(5, 5)
-        b_c, w_c = score(pos, weights_center)
-        total_center = sum(sum(row) for row in weights_center)
+        weight_center = CenterSquareWeight()
+        b_c, w_c = score(pos, weight_center)
+        board_size = BoardSize(5, 5)
+        total_center = weight_center.total_weight(board_size)
         assert b_c + w_c == total_center
 
-        weights_agg = aggressive_center_weights(5, 5)
-        b_a, w_a = score(pos, weights_agg)
-        total_agg = sum(sum(row) for row in weights_agg)
+        weight_agg = CenterDiamondWeight()
+        b_a, w_a = score(pos, weight_agg)
+        total_agg = weight_agg.total_weight(board_size)
         assert b_a + w_a == total_agg
 
     def test_score_aggressive_weights(self):
@@ -401,11 +423,12 @@ class TestScoring:
         pos.board.set((2, 2), Stone.WHITE)  # Center, weight = 5
         pos.board.set((1, 3), Stone.BLACK)  # weight = 1 + 1 + 1 = 3
 
-        weights = aggressive_center_weights(5, 5)
-        black_score, white_score = score(pos, weights)
+        weight = CenterDiamondWeight()
+        black_score, white_score = score(pos, weight)
 
         # With area scoring, total should equal sum of all weights
-        total_weights = sum(sum(row) for row in weights)
+        board_size = BoardSize(5, 5)
+        total_weights = weight.total_weight(board_size)
         assert black_score + white_score == total_weights
         # Center stone should give white advantage
         assert white_score > black_score
@@ -416,8 +439,8 @@ class TestScoring:
         pos.board.set((4, 8), Stone.WHITE)
         pos.board.set((2, 4), Stone.BLACK)
 
-        weights = uniform_weights(5, 9)
-        black_score, white_score = score(pos, weights)
+        weight = UniformWeight()
+        black_score, white_score = score(pos, weight)
 
         # Total should be 5*9 = 45
         assert black_score + white_score == 45.0
@@ -428,11 +451,12 @@ class TestScoring:
         pos.board.set((4, 8), Stone.WHITE)    # weight = 1 (corner)
         pos.board.set((2, 4), Stone.BLACK)    # weight = 7
 
-        weights = aggressive_center_weights(5, 9)
-        black_score, white_score = score(pos, weights)
+        weight = CenterDiamondWeight()
+        black_score, white_score = score(pos, weight)
 
         # Total should equal sum of all weights
-        total_weights = sum(sum(row) for row in weights)
+        board_size = BoardSize(5, 9)
+        total_weights = weight.total_weight(board_size)
         assert black_score + white_score == total_weights
 
 

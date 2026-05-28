@@ -4,13 +4,10 @@ Weight system for Weighted Go.
 Defines the weight abstraction for assigning numeric weights to board positions.
 """
 
-from typing import Callable, List, Tuple
+from typing import Callable, List
 from abc import ABC, abstractmethod
 
-from .board_size import BoardSize
-
-
-Position = Tuple[int, int]
+from .board import BoardSize, Position
 
 
 class Weight(ABC):
