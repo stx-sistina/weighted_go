@@ -1072,12 +1072,8 @@ class WeightedGoApp:
                 # Clear invalid groups
                 self.invalid_groups.clear()
 
-                # Create new backup for the empty board (so revert works)
-                self.edit_session_backup = GamePosition(rows, cols)
-                self.backup_original_file_name = ""
-                self.backup_next_stone_color = Stone.BLACK
-                self.backup_board_rows = rows
-                self.backup_board_cols = cols
+                # Don't reset backup - board size change is an editing action
+                # Revert should restore the original board size and position
 
                 self.redraw_board()
                 dialog.destroy()
