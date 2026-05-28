@@ -7,7 +7,7 @@ Symbol definitions are in weighted_go.commons.resources.
 
 from typing import Set, Tuple
 from .board import Position, Stone
-from .core import GamePosition, find_territory
+from .game import GamePosition, find_territory
 from ..commons.resources import (
     SYMBOL_BLACK_STONE,
     SYMBOL_WHITE_STONE,
@@ -173,7 +173,7 @@ def print_score_summary(pos: GamePosition, weight, weight_name: str = ""):
         weight: Weight object, weight function, or weight matrix to use for scoring
         weight_name: Name of the weighting scheme (for display, optional if using Weight object)
     """
-    from .core import score
+    from .game import score
     from .weight import Weight
     from .board import BoardSize
 

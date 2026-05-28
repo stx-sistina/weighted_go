@@ -7,7 +7,7 @@ Parses SGF files and returns the final position of the main path.
 import re
 from typing import Tuple, Optional
 from .board import Stone
-from .core import GamePosition, is_valid_position
+from .game import GamePosition, is_valid_position
 
 
 class SGFError(Exception):

@@ -11,7 +11,7 @@ from .board import (
     Position,
 )
 
-from .core import (
+from .game import (
     Group,
     find_group,
     has_liberties,
