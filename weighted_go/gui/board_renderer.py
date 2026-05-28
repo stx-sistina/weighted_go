@@ -9,31 +9,20 @@ from typing import Optional, Set, Tuple, List
 import colorsys
 
 from ..core import Board, GamePosition, Stone, find_territory
+from ..commons.gui_colors import (
+    BOARD_COLOR, GRID_COLOR, STAR_POINT_COLOR, COORD_COLOR,
+    BLACK_STONE_COLOR, BLACK_STONE_OUTLINE, WHITE_STONE_COLOR, WHITE_STONE_OUTLINE,
+    DEAD_BLACK_STONE_COLOR, DEAD_BLACK_STONE_OUTLINE,
+    DEAD_WHITE_STONE_COLOR, DEAD_WHITE_STONE_OUTLINE,
+    BLACK_TERRITORY_COLOR, WHITE_TERRITORY_COLOR, CONTESTED_TERRITORY_COLOR,
+    GHOST_BLACK_ALPHA, GHOST_WHITE_ALPHA,
+    INVALID_GROUP_COLOR, INVALID_GROUP_WIDTH
+)
+from ..commons.color_helper import blend_colors
 
 
 class BoardRenderer:
     """Renders a Go board on a Tkinter canvas."""
-
-    # Visual constants
-    BOARD_COLOR = "#DCB35C"  # Traditional goban color
-    GRID_COLOR = "#000000"
-    STAR_POINT_COLOR = "#000000"
-    COORD_COLOR = "#333333"
-
-    # Stone colors
-    BLACK_STONE_COLOR = "#000000"
-    BLACK_STONE_OUTLINE = "#333333"
-    WHITE_STONE_COLOR = "#FFFFFF"
-    WHITE_STONE_OUTLINE = "#CCCCCC"
-
-    # Dead stone marking
-    DEAD_STONE_MARK_COLOR = "#FF0000"
-    DEAD_STONE_ALPHA = 0.5
-
-    # Territory colors (semi-transparent)
-    BLACK_TERRITORY_COLOR = "#000000"
-    WHITE_TERRITORY_COLOR = "#FFFFFF"
-    CONTESTED_TERRITORY_COLOR = "#808080"
 
     def __init__(self, canvas: tk.Canvas):
         """
@@ -151,18 +140,18 @@ class BoardRenderer:
         self.calculate_layout()
 
         # Background
-        self.canvas.config(bg=self.BOARD_COLOR)
+        self.canvas.config(bg=BOARD_COLOR)
 
         # Grid lines
         for row in range(self.board.rows):
             x1, y1 = self.board_to_canvas(row, 0)
             x2, y2 = self.board_to_canvas(row, self.board.cols - 1)
-            self.canvas.create_line(x1, y1, x2, y2, fill=self.GRID_COLOR, width=1)
+            self.canvas.create_line(x1, y1, x2, y2, fill=GRID_COLOR, width=1)
 
         for col in range(self.board.cols):
             x1, y1 = self.board_to_canvas(0, col)
             x2, y2 = self.board_to_canvas(self.board.rows - 1, col)
-            self.canvas.create_line(x1, y1, x2, y2, fill=self.GRID_COLOR, width=1)
+            self.canvas.create_line(x1, y1, x2, y2, fill=GRID_COLOR, width=1)
 
         # Star points (for standard board sizes)
         star_points = self.get_star_points()
@@ -171,7 +160,7 @@ class BoardRenderer:
             self.canvas.create_oval(
                 x - self.star_point_radius, y - self.star_point_radius,
                 x + self.star_point_radius, y + self.star_point_radius,
-                fill=self.STAR_POINT_COLOR, outline=""
+                fill=STAR_POINT_COLOR, outline=""
             )
 
         # Coordinates
@@ -213,13 +202,13 @@ class BoardRenderer:
             # Top
             self.canvas.create_text(
                 x, y_top - 20,
-                text=label, fill=self.COORD_COLOR,
+                text=label, fill=COORD_COLOR,
                 font=("Helvetica", font_size)
             )
             # Bottom
             self.canvas.create_text(
                 x, y_bottom + 20,
-                text=label, fill=self.COORD_COLOR,
+                text=label, fill=COORD_COLOR,
                 font=("Helvetica", font_size)
             )
 
@@ -232,13 +221,13 @@ class BoardRenderer:
             # Left
             self.canvas.create_text(
                 x_left - 20, y,
-                text=label, fill=self.COORD_COLOR,
+                text=label, fill=COORD_COLOR,
                 font=("Helvetica", font_size)
             )
             # Right
             self.canvas.create_text(
                 x_right + 20, y,
-                text=label, fill=self.COORD_COLOR,
+                text=label, fill=COORD_COLOR,
                 font=("Helvetica", font_size)
             )
 
@@ -275,22 +264,21 @@ class BoardRenderer:
         x, y = self.board_to_canvas(row, col)
 
         if is_dead:
-            # Dead stones: use very light/faded colors
-            # alpha = 0.45 for black, 0.15 for white
+            # Dead stones: use pre-blended faded colors
             if stone == Stone.BLACK:
-                fill = "#796233"  # 45% black on goban background
-                outline = "#897243"
+                fill = DEAD_BLACK_STONE_COLOR
+                outline = DEAD_BLACK_STONE_OUTLINE
             else:
-                fill = "#EAE3D3"  # 20% white on goban background
-                outline = "#DAE3D3"
+                fill = DEAD_WHITE_STONE_COLOR
+                outline = DEAD_WHITE_STONE_OUTLINE
         else:
             # Normal stones
             if stone == Stone.BLACK:
-                fill = self.BLACK_STONE_COLOR
-                outline = self.BLACK_STONE_OUTLINE
+                fill = BLACK_STONE_COLOR
+                outline = BLACK_STONE_OUTLINE
             else:
-                fill = self.WHITE_STONE_COLOR
-                outline = self.WHITE_STONE_OUTLINE
+                fill = WHITE_STONE_COLOR
+                outline = WHITE_STONE_OUTLINE
 
         # Draw stone
         self.canvas.create_oval(
@@ -384,7 +372,7 @@ class BoardRenderer:
                     self.canvas.create_rectangle(
                         x - marker_size, y - marker_size,
                         x + marker_size, y + marker_size,
-                        fill=self.BLACK_TERRITORY_COLOR, outline="",
+                        fill=BLACK_TERRITORY_COLOR, outline="",
                         tags="territory"
                     )
                 elif owner == Stone.WHITE:
@@ -392,7 +380,7 @@ class BoardRenderer:
                     self.canvas.create_rectangle(
                         x - marker_size, y - marker_size,
                         x + marker_size, y + marker_size,
-                        fill="", outline=self.WHITE_TERRITORY_COLOR, width=2,
+                        fill="", outline=WHITE_TERRITORY_COLOR, width=2,
                         tags="territory"
                     )
                 else:
@@ -400,7 +388,7 @@ class BoardRenderer:
                     self.canvas.create_oval(
                         x - marker_size, y - marker_size,
                         x + marker_size, y + marker_size,
-                        fill=self.CONTESTED_TERRITORY_COLOR, outline="",
+                        fill=CONTESTED_TERRITORY_COLOR, outline="",
                         tags="territory"
                     )
 
@@ -525,23 +513,7 @@ class BoardRenderer:
         Returns:
             Blended color as hex string
         """
-        # Goban background color
-        bg_color = "#DCB35C"
-
-        # Parse hex colors to RGB
-        def hex_to_rgb(h):
-            h = h.lstrip('#')
-            return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-
-        fg_r, fg_g, fg_b = hex_to_rgb(color_hex)
-        bg_r, bg_g, bg_b = hex_to_rgb(bg_color)
-
-        # Alpha blending: result = alpha * foreground + (1 - alpha) * background
-        blend_r = int(alpha * fg_r + (1 - alpha) * bg_r)
-        blend_g = int(alpha * fg_g + (1 - alpha) * bg_g)
-        blend_b = int(alpha * fg_b + (1 - alpha) * bg_b)
-
-        return f"#{blend_r:02x}{blend_g:02x}{blend_b:02x}"
+        return blend_colors(color_hex, BOARD_COLOR, alpha)
 
     def draw_ghost_stone(self, pos: Tuple[int, int], color, show_illegal: bool = False):
         """
@@ -560,9 +532,9 @@ class BoardRenderer:
         row, col = pos
         x, y = self.board_to_canvas(row, col)
 
-        stone_color = "#000000" if color == Stone.BLACK else "#FFFFFF"
-        # Ghost stone opacity: 45% for black, 20% for white
-        alpha = 0.45 if color == Stone.BLACK else 0.20
+        stone_color = BLACK_STONE_COLOR if color == Stone.BLACK else WHITE_STONE_COLOR
+        # Ghost stone opacity
+        alpha = GHOST_BLACK_ALPHA if color == Stone.BLACK else GHOST_WHITE_ALPHA
         ghost_color = self.blend_color(stone_color, alpha)
 
         radius = self.cell_size * 0.45
@@ -578,11 +550,11 @@ class BoardRenderer:
             offset = radius * 0.6
             self.canvas.create_line(
                 x - offset, y - offset, x + offset, y + offset,
-                fill="#FF0000", width=2, tags="ghost"
+                fill=INVALID_GROUP_COLOR, width=2, tags="ghost"
             )
             self.canvas.create_line(
                 x - offset, y + offset, x + offset, y - offset,
-                fill="#FF0000", width=2, tags="ghost"
+                fill=INVALID_GROUP_COLOR, width=2, tags="ghost"
             )
 
     def draw_invalid_groups(self, invalid_groups):
@@ -612,9 +584,9 @@ class BoardRenderer:
             if len(canvas_points) >= 6:  # Need at least 3 points (6 coordinates)
                 self.canvas.create_polygon(
                     canvas_points,
-                    outline="#FF0000",
+                    outline=INVALID_GROUP_COLOR,
                     fill="",
-                    width=3,
+                    width=INVALID_GROUP_WIDTH,
                     tags="invalid_bounds"
                 )
 

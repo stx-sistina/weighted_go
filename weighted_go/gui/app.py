@@ -21,6 +21,7 @@ from ..core import (
     read_sgf_file, parse_sgf_properties
 )
 from ..commons.weights import UniformWeight, CenterSquareWeight, CenterDiamondWeight
+from ..commons.gui_colors import FILE_LABEL_NORMAL_COLOR, FILE_LABEL_EMPTY_COLOR
 from .board_renderer import BoardRenderer
 
 
@@ -114,7 +115,7 @@ class WeightedGoApp:
         )
         row += 1
 
-        self.file_label = ttk.Label(control_frame, text="No file loaded", foreground="gray",
+        self.file_label = ttk.Label(control_frame, text="No file loaded", foreground=FILE_LABEL_EMPTY_COLOR,
                                    wraplength=220)
         self.file_label.grid(row=row, column=0, sticky=(tk.W, tk.E))
         row += 1
@@ -231,7 +232,7 @@ class WeightedGoApp:
         self.dead_title_label.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         row += 1
 
-        self.dead_help_label = ttk.Label(control_frame, text="Click stones to mark as dead", foreground="gray")
+        self.dead_help_label = ttk.Label(control_frame, text="Click stones to mark as dead", foreground=FILE_LABEL_EMPTY_COLOR)
         self.dead_help_label.grid(row=row, column=0, sticky=(tk.W, tk.E))
         row += 1
 
@@ -252,7 +253,7 @@ class WeightedGoApp:
 
         self.edit_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
         self.edit_title_label = ttk.Label(control_frame, text="Editing Mode", font=("Helvetica", 12, "bold"))
-        self.edit_help_label = ttk.Label(control_frame, text="Click to place/remove stones", foreground="gray")
+        self.edit_help_label = ttk.Label(control_frame, text="Click to place/remove stones", foreground=FILE_LABEL_EMPTY_COLOR)
 
         # Radio buttons for editing modes - Alternating with clickable color toggle
         self.alternating_frame = ttk.Frame(control_frame)
@@ -394,7 +395,7 @@ class WeightedGoApp:
         self.current_weights = self.WEIGHT_SCHEMES[self.current_weight_name]
 
         # Update UI
-        self.file_label.config(text="Empty board", foreground="gray")
+        self.file_label.config(text="Empty board", foreground=FILE_LABEL_EMPTY_COLOR)
         self.info_label.config(text=f"Board: {rows}×{cols}")
         self.clear_game_info()
 
@@ -443,7 +444,7 @@ class WeightedGoApp:
             self.current_weights = self.WEIGHT_SCHEMES[self.current_weight_name]
 
             # Update UI
-            self.file_label.config(text=self.original_file_name, foreground="black")
+            self.file_label.config(text=self.original_file_name, foreground=FILE_LABEL_NORMAL_COLOR)
             self.info_label.config(text=f"Board: {rows}×{cols}")
             self.update_game_info()
 
@@ -541,13 +542,13 @@ class WeightedGoApp:
         # Event
         event = self.sgf_properties.get('event', '')
         if event:
-            self.event_label.config(text=f"Event: {event}", foreground="black")
+            self.event_label.config(text=f"Event: {event}", foreground=FILE_LABEL_NORMAL_COLOR)
             self.event_label.pack(anchor=tk.W)
 
         # Date
         date = self.sgf_properties.get('date', '')
         if date:
-            self.date_label.config(text=f"Date: {date}", foreground="black")
+            self.date_label.config(text=f"Date: {date}", foreground=FILE_LABEL_NORMAL_COLOR)
             self.date_label.pack(anchor=tk.W)
 
         # Black player
@@ -560,7 +561,7 @@ class WeightedGoApp:
         else:
             black_text = ""
         if black_text:
-            self.black_player_label.config(text=black_text, foreground="black")
+            self.black_player_label.config(text=black_text, foreground=FILE_LABEL_NORMAL_COLOR)
             self.black_player_label.pack(anchor=tk.W)
 
         # White player
@@ -573,19 +574,19 @@ class WeightedGoApp:
         else:
             white_text = ""
         if white_text:
-            self.white_player_label.config(text=white_text, foreground="black")
+            self.white_player_label.config(text=white_text, foreground=FILE_LABEL_NORMAL_COLOR)
             self.white_player_label.pack(anchor=tk.W)
 
         # Komi
         komi = self.sgf_properties.get('komi', '')
         if komi:
-            self.komi_label.config(text=f"Komi: {komi}", foreground="black")
+            self.komi_label.config(text=f"Komi: {komi}", foreground=FILE_LABEL_NORMAL_COLOR)
             self.komi_label.pack(anchor=tk.W)
 
         # Result
         result = self.sgf_properties.get('result', '')
         if result:
-            self.result_label.config(text=f"Result: {result}", foreground="black")
+            self.result_label.config(text=f"Result: {result}", foreground=FILE_LABEL_NORMAL_COLOR)
             self.result_label.pack(anchor=tk.W)
 
     def clear_game_info(self):
@@ -852,7 +853,7 @@ class WeightedGoApp:
             self.original_file_name = ""
             self.position_modified = False
             self.is_custom_game = False
-            self.file_label.config(text="Empty board", foreground="gray")
+            self.file_label.config(text="Empty board", foreground=FILE_LABEL_EMPTY_COLOR)
 
             self.redraw_board()
 
@@ -897,13 +898,13 @@ class WeightedGoApp:
     def update_file_label(self):
         """Update file label to show modification status."""
         if self.position_modified and self.original_file_name:
-            self.file_label.config(text=f"<Modified> {self.original_file_name}", foreground="black")
+            self.file_label.config(text=f"<Modified> {self.original_file_name}", foreground=FILE_LABEL_NORMAL_COLOR)
         elif self.original_file_name:
-            self.file_label.config(text=self.original_file_name, foreground="black")
+            self.file_label.config(text=self.original_file_name, foreground=FILE_LABEL_NORMAL_COLOR)
         elif self.is_custom_game:
-            self.file_label.config(text="Custom game", foreground="black")
+            self.file_label.config(text="Custom game", foreground=FILE_LABEL_NORMAL_COLOR)
         else:
-            self.file_label.config(text="Empty board", foreground="gray")
+            self.file_label.config(text="Empty board", foreground=FILE_LABEL_EMPTY_COLOR)
 
     def find_invalid_groups(self) -> List[Set[Tuple[int, int]]]:
         """Find all groups with no liberties."""
