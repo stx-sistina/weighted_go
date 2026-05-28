@@ -1062,6 +1062,12 @@ class WeightedGoApp:
                 if not (1 <= rows <= 25 and 1 <= cols <= 25):
                     raise ValueError("Size must be between 1 and 25")
 
+                # Check if size actually changed
+                if self.position and self.position.board.rows == rows and self.position.board.cols == cols:
+                    # Size unchanged - just close dialog
+                    dialog.destroy()
+                    return
+
                 # Confirm if board has stones
                 if self.position:
                     black_count, white_count = self.position.board.count_stones()
