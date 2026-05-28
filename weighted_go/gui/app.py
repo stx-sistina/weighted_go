@@ -94,13 +94,50 @@ class WeightedGoApp:
         self.setup_board_panel(main_container)
 
     def setup_control_panel(self, parent):
-        """Set up the left control panel."""
-        control_frame = ttk.Frame(parent, padding="5", relief=tk.RIDGE, borderwidth=2, width=250)
-        control_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
-        control_frame.grid_propagate(False)  # Prevent resizing based on content
+        """Set up the left control panel with scrolling support."""
+        # Outer container for the control panel
+        control_container = ttk.Frame(parent, relief=tk.RIDGE, borderwidth=2, width=250)
+        control_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
+        control_container.grid_propagate(False)  # Fixed width
+        control_container.rowconfigure(0, weight=1)
+        control_container.columnconfigure(0, weight=1)
+
+        # Canvas for scrolling
+        canvas = tk.Canvas(control_container, highlightthickness=0)
+        canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(control_container, orient=tk.VERTICAL, command=canvas.yview)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Inner frame that holds all controls
+        control_frame = ttk.Frame(canvas, padding="5")
+        canvas_window = canvas.create_window((0, 0), window=control_frame, anchor=tk.NW)
 
         # Configure column to expand
         control_frame.columnconfigure(0, weight=1)
+
+        # Update scroll region when frame size changes
+        def on_frame_configure(_event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def on_canvas_configure(event):
+            # Update the width of the frame to match canvas width
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        control_frame.bind("<Configure>", on_frame_configure)
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        # Enable mouse wheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind_all("<MouseWheel>", on_mousewheel)  # Windows/MacOS
+
+        # Store references for later use
+        self.control_canvas = canvas
+        self.control_scrollbar = scrollbar
 
         row = 0
 
@@ -129,31 +166,109 @@ class WeightedGoApp:
         self.edit_button = ttk.Button(control_frame, text="Edit Position",
                                       command=self.enter_edit_mode)
         self.edit_button.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
+        self.edit_button_row = row
         row += 1
+
+        # Editing Mode section (shown in editing mode, positioned right after game file)
+        self.edit_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
+        self.edit_separator_row = row
+
+        self.edit_title_label = ttk.Label(control_frame, text="Editing Mode", font=("Helvetica", 12, "bold"))
+        self.edit_title_row = row + 1
+
+        self.edit_help_label = ttk.Label(control_frame, text="Click to place/remove stones", foreground=FILE_LABEL_EMPTY_COLOR)
+        self.edit_help_row = row + 2
+
+        # Radio buttons for editing modes - Alternating with clickable color toggle
+        self.alternating_frame = ttk.Frame(control_frame)
+        self.alternating_frame_row = row + 3
+
+        self.edit_alternating_radio = ttk.Radiobutton(
+            self.alternating_frame,
+            text="Alternating",
+            variable=self.edit_mode_var,
+            value="alternating",
+            command=self.on_edit_mode_changed
+        )
+        self.edit_alternating_radio.pack(side=tk.LEFT)
+
+        # Clickable label for color toggle
+        self.alternating_color_label = ttk.Label(
+            self.alternating_frame,
+            text="(Next: ●)",
+            foreground="blue",
+            cursor="hand2"
+        )
+        self.alternating_color_label.pack(side=tk.LEFT)
+        self.alternating_color_label.bind("<Button-1>", lambda _: self.toggle_alternating_color())
+
+        self.edit_black_radio = ttk.Radiobutton(
+            control_frame,
+            text="Black",
+            variable=self.edit_mode_var,
+            value="black",
+            command=self.on_edit_mode_changed
+        )
+        self.edit_black_row = row + 4
+
+        self.edit_white_radio = ttk.Radiobutton(
+            control_frame,
+            text="White",
+            variable=self.edit_mode_var,
+            value="white",
+            command=self.on_edit_mode_changed
+        )
+        self.edit_white_row = row + 5
+
+        self.edit_erase_radio = ttk.Radiobutton(
+            control_frame,
+            text="Erase",
+            variable=self.edit_mode_var,
+            value="erase",
+            command=self.on_edit_mode_changed
+        )
+        self.edit_erase_row = row + 6
 
         # Done/Clear/Revert buttons (shown in editing mode)
         self.done_button = ttk.Button(control_frame, text="Done Editing",
                                       command=self.exit_edit_mode)
+        self.done_button_row = row + 7
+
         self.clear_button = ttk.Button(control_frame, text="Clear Board",
                                        command=self.clear_board)
+        self.clear_button_row = row + 8
+
         self.revert_button = ttk.Button(control_frame, text="Revert Changes",
                                         command=self.revert_changes)
-        # Don't grid these yet - they'll be shown in editing mode
-        self.done_button_row = row
-        self.clear_button_row = row + 1
-        self.revert_button_row = row + 2
-        edit_buttons_row = row
-        row += 3  # Reserve space for these buttons
+        self.revert_button_row = row + 9
 
-        # Game info section
-        ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=10
-        )
+        # Don't grid editing mode widgets yet - they'll be shown when entering edit mode
+        # Keep track of all editing mode widgets for easy show/hide
+        self.edit_mode_widgets = [
+            (self.edit_separator, self.edit_separator_row),
+            (self.edit_title_label, self.edit_title_row),
+            (self.edit_help_label, self.edit_help_row),
+            (self.alternating_frame, self.alternating_frame_row),
+            (self.edit_black_radio, self.edit_black_row),
+            (self.edit_white_radio, self.edit_white_row),
+            (self.edit_erase_radio, self.edit_erase_row),
+            (self.done_button, self.done_button_row),
+            (self.clear_button, self.clear_button_row),
+            (self.revert_button, self.revert_button_row),
+        ]
+
+        # Game info section starts after editing section
+        row += 10  # Skip past editing section
+
+        # Game info section separator and title
+        self.game_info_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
+        self.game_info_separator.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
+        self.game_info_separator_row = row
         row += 1
 
-        ttk.Label(control_frame, text="Game Info", font=("Helvetica", 12, "bold")).grid(
-            row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5)
-        )
+        self.game_info_title = ttk.Label(control_frame, text="Game Info", font=("Helvetica", 12, "bold"))
+        self.game_info_title.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        self.game_info_title_row = row
         row += 1
 
         # Game info labels - only pack them when they have content
@@ -248,66 +363,6 @@ class WeightedGoApp:
         self.dead_clear_button.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
 
-        # Editing Mode section (editing mode only - initially hidden)
-        edit_section_row = row
-
-        self.edit_separator = ttk.Separator(control_frame, orient=tk.HORIZONTAL)
-        self.edit_title_label = ttk.Label(control_frame, text="Editing Mode", font=("Helvetica", 12, "bold"))
-        self.edit_help_label = ttk.Label(control_frame, text="Click to place/remove stones", foreground=FILE_LABEL_EMPTY_COLOR)
-
-        # Radio buttons for editing modes - Alternating with clickable color toggle
-        self.alternating_frame = ttk.Frame(control_frame)
-        self.edit_alternating_radio = ttk.Radiobutton(
-            self.alternating_frame,
-            text="Alternating",
-            variable=self.edit_mode_var,
-            value="alternating",
-            command=self.on_edit_mode_changed
-        )
-        self.edit_alternating_radio.pack(side=tk.LEFT)
-
-        # Clickable label for color toggle
-        self.alternating_color_label = ttk.Label(
-            self.alternating_frame,
-            text="(Next: ●)",
-            foreground="blue",
-            cursor="hand2"
-        )
-        self.alternating_color_label.pack(side=tk.LEFT)
-        self.alternating_color_label.bind("<Button-1>", lambda e: self.toggle_alternating_color())
-        self.edit_black_radio = ttk.Radiobutton(
-            control_frame,
-            text="Black",
-            variable=self.edit_mode_var,
-            value="black",
-            command=self.on_edit_mode_changed
-        )
-        self.edit_white_radio = ttk.Radiobutton(
-            control_frame,
-            text="White",
-            variable=self.edit_mode_var,
-            value="white",
-            command=self.on_edit_mode_changed
-        )
-        self.edit_erase_radio = ttk.Radiobutton(
-            control_frame,
-            text="Erase",
-            variable=self.edit_mode_var,
-            value="erase",
-            command=self.on_edit_mode_changed
-        )
-
-        # Don't grid these yet - they'll be shown in editing mode
-        self.edit_section_widgets = [
-            (self.edit_separator, edit_section_row, {"sticky": (tk.W, tk.E), "pady": 10}),
-            (self.edit_title_label, edit_section_row + 1, {"sticky": (tk.W, tk.E), "pady": (0, 5)}),
-            (self.edit_help_label, edit_section_row + 2, {"sticky": (tk.W, tk.E)}),
-            (self.alternating_frame, edit_section_row + 3, {"sticky": (tk.W, tk.E)}),
-            (self.edit_black_radio, edit_section_row + 4, {"sticky": (tk.W, tk.E)}),
-            (self.edit_white_radio, edit_section_row + 5, {"sticky": (tk.W, tk.E)}),
-            (self.edit_erase_radio, edit_section_row + 6, {"sticky": (tk.W, tk.E)}),
-        ]
-        row = edit_section_row + 7
 
         # Display mode
         ttk.Separator(control_frame, orient=tk.HORIZONTAL).grid(
@@ -539,17 +594,21 @@ class WeightedGoApp:
                      self.white_player_label, self.komi_label, self.result_label]:
             label.pack_forget()
 
+        has_content = False
+
         # Event
         event = self.sgf_properties.get('event', '')
         if event:
             self.event_label.config(text=f"Event: {event}", foreground=FILE_LABEL_NORMAL_COLOR)
             self.event_label.pack(anchor=tk.W)
+            has_content = True
 
         # Date
         date = self.sgf_properties.get('date', '')
         if date:
             self.date_label.config(text=f"Date: {date}", foreground=FILE_LABEL_NORMAL_COLOR)
             self.date_label.pack(anchor=tk.W)
+            has_content = True
 
         # Black player
         black_player = self.sgf_properties.get('black_player', '')
@@ -563,6 +622,7 @@ class WeightedGoApp:
         if black_text:
             self.black_player_label.config(text=black_text, foreground=FILE_LABEL_NORMAL_COLOR)
             self.black_player_label.pack(anchor=tk.W)
+            has_content = True
 
         # White player
         white_player = self.sgf_properties.get('white_player', '')
@@ -576,24 +636,41 @@ class WeightedGoApp:
         if white_text:
             self.white_player_label.config(text=white_text, foreground=FILE_LABEL_NORMAL_COLOR)
             self.white_player_label.pack(anchor=tk.W)
+            has_content = True
 
         # Komi
         komi = self.sgf_properties.get('komi', '')
         if komi:
             self.komi_label.config(text=f"Komi: {komi}", foreground=FILE_LABEL_NORMAL_COLOR)
             self.komi_label.pack(anchor=tk.W)
+            has_content = True
 
         # Result
         result = self.sgf_properties.get('result', '')
         if result:
             self.result_label.config(text=f"Result: {result}", foreground=FILE_LABEL_NORMAL_COLOR)
             self.result_label.pack(anchor=tk.W)
+            has_content = True
+
+        # Show or hide the game info section based on content
+        if has_content:
+            self.game_info_separator.grid()
+            self.game_info_title.grid()
+            self.game_info_frame.grid()
+        else:
+            self.game_info_separator.grid_remove()
+            self.game_info_title.grid_remove()
+            self.game_info_frame.grid_remove()
 
     def clear_game_info(self):
-        """Clear game info display."""
+        """Clear game info display and hide section."""
         for label in [self.event_label, self.date_label, self.black_player_label,
                      self.white_player_label, self.komi_label, self.result_label]:
             label.pack_forget()
+        # Hide section title, separator, and frame
+        self.game_info_separator.grid_remove()
+        self.game_info_title.grid_remove()
+        self.game_info_frame.grid_remove()
 
     def clear_dead_stones(self):
         """Clear all marked dead stones."""
@@ -683,13 +760,20 @@ class WeightedGoApp:
         self.dead_white_label.grid_remove()
         self.dead_clear_button.grid_remove()
 
-        # Show editing controls
-        self.done_button.grid(row=self.done_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
-        self.clear_button.grid(row=self.clear_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
-        self.revert_button.grid(row=self.revert_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
+        # Hide edit button
+        self.edit_button.grid_remove()
 
-        for widget, row, kwargs in self.edit_section_widgets:
-            widget.grid(row=row, column=0, **kwargs)
+        # Show editing mode section (positioned right after game file)
+        for widget, widget_row in self.edit_mode_widgets:
+            if widget == self.edit_separator:
+                widget.grid(row=widget_row, column=0, sticky=(tk.W, tk.E), pady=10)
+            elif widget == self.edit_title_label:
+                widget.grid(row=widget_row, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+            elif widget in (self.edit_help_label, self.alternating_frame,
+                           self.edit_black_radio, self.edit_white_radio, self.edit_erase_radio):
+                widget.grid(row=widget_row, column=0, sticky=(tk.W, tk.E))
+            elif widget in (self.done_button, self.clear_button, self.revert_button):
+                widget.grid(row=widget_row, column=0, sticky=(tk.W, tk.E), pady=5)
 
         self.update_edit_mode_label()
         self.redraw_board()
@@ -720,7 +804,7 @@ class WeightedGoApp:
                 self.update_file_label()
 
         # Show scoring controls
-        self.edit_button.grid(row=self.done_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
+        self.edit_button.grid(row=self.edit_button_row, column=0, sticky=(tk.W, tk.E), pady=5)
         self.dead_separator.grid()
         self.dead_title_label.grid()
         self.dead_help_label.grid()
@@ -728,11 +812,8 @@ class WeightedGoApp:
         self.dead_white_label.grid()
         self.dead_clear_button.grid()
 
-        # Hide editing controls
-        self.done_button.grid_remove()
-        self.clear_button.grid_remove()
-        self.revert_button.grid_remove()
-        for widget, _, _ in self.edit_section_widgets:
+        # Hide editing mode section
+        for widget, _ in self.edit_mode_widgets:
             widget.grid_remove()
 
         # Clear backup
@@ -854,6 +935,10 @@ class WeightedGoApp:
             self.position_modified = False
             self.is_custom_game = False
             self.file_label.config(text="Empty board", foreground=FILE_LABEL_EMPTY_COLOR)
+
+            # Clear SGF properties and game info
+            self.sgf_properties = {}
+            self.clear_game_info()
 
             self.redraw_board()
 
