@@ -1,183 +1,113 @@
 # Weighted Go
 
-A Go variant where each intersection on the board has a configurable weight. Regular Go corresponds to `w_ij = 1` for all positions.
+A Go variant where each board intersection has a configurable weight. Implements Chinese-style area scoring where **Black_score + White_score = Total board weight**.
 
-**Visualization**: The board displays with Unicode symbols:
-- ● Black stones  ○ White stones
-- ■ Black territory  □ White territory  ⬕ Contested
+**This package provides tools for analyzing and scoring Go games with custom weight schemes. It does not offer gameplay.**
 
-## Features
+## GUI Application
 
-- **Area Scoring**: Chinese-style scoring where Black + White = total board weight
-- **Multiple Weight Schemes**: Uniform, center-weighted (square/diamond patterns)
-- **SGF Support**: Read and analyze real Go games from SGF files
-- **GUI Application**: Tkinter-based GUI with dead stone marking, territory visualization, and weight heatmaps
-- **CLI Tools**: Command-line game analysis
-- **Non-square Boards**: Full support for rectangular boards
-- **Capture Logic**: Automatic capture, suicide prevention, position validation
-- **Beautiful Visualization**: Unicode symbols and ANSI colors for terminal display
-
-## Quick Start
-
-### Installation
-
-```bash
-# Install the package
-pip install -e .
-
-# Or with development dependencies
-pip install -e . -r requirements-dev.txt
-```
-
-### GUI Application
-
+Launch the GUI:
 ```bash
 ./run_gui.sh
+# or
+python -m weighted_go.gui.run_gui
 ```
 
-Features:
-- Load SGF files with game metadata
-- Click to mark dead stone groups
-- Live territory and score updates
-- Three weight schemes: Uniform, Center: Square, Center: Diamond
-- Display modes: Stones Only, Territory Markers, Weight Heatmap
+### Features
+- **Load SGF files** with metadata (player names, ranks, komi, result)
+- **Position editing**:
+  - Four editing modes: Alternating (validated), Black, White, Erase
+  - Board size management (1-25, supports non-square boards)
+  - Clear board and revert changes
+- **Dead stone marking**: Click to mark/unmark groups
+- **Weight schemes**: Uniform, Center: Square, Center: Diamond (see [docs/weights.md](docs/weights.md))
+- **Display modes**: Stones Only, Territory Markers, Weight Heatmap
+- **Live scoring** with automatic territory calculation
 
-### Analyze a Game (CLI)
+## CLI Tools
 
+Analyze a game from SGF:
 ```bash
-./run_cli.sh data/[2137HLE]vs[sistina喵]1779897572030032210.sgf
+./run_cli.sh data/game.sgf
+# or
+python -m weighted_go.cli.analyze_game data/game.sgf
+
+# Show detailed board state
+./run_cli.sh data/game.sgf --full
 ```
 
 Example output:
 ```
-Final Position (with territory markers):
-  ● Black stones  ○ White stones
-  ■ Black territory  □ White territory  ⬕ Contested
-
 Scoring Results (Area Scoring)
 │ Weighting Scheme     │  Black   │   White  │    Result    │  Total  │
-├──────────────────────┼──────────┼───────────┼─────────────┼────────┤
+├──────────────────────┼──────────┼──────────┼──────────────┼─────────┤
 │ Uniform (Standard)   │    164.0 │     197.0 │      W+33.0  │    361  │
 │ Center: Square       │    607.0 │     723.0 │     W+116.0  │   1330  │
 │ Center: Diamond      │   1627.5 │    1811.5 │     W+184.0  │   3439  │
 ```
 
-### As a Library
+## Use as a Package
+
+### Installation
+```bash
+pip install -e .
+```
+
+### Basic Usage
 
 ```python
 from weighted_go import (
-    GamePosition, Stone,
-    score, center_weights, aggressive_center_weights
+    GamePosition, Stone, BoardSize,
+    UniformWeight, CenterSquareWeight, CenterDiamondWeight,
+    score, read_sgf_file, print_board_with_territory
 )
-from weighted_go.sgf_reader import read_sgf_file
-from weighted_go.visualization import print_board_with_territory
 
 # Load a game
-pos = read_sgf_file("game.sgf")
+position, last_move = read_sgf_file("game.sgf")
 
 # Display the board
-print_board_with_territory(pos)
+print_board_with_territory(position)
 
-# Score with center weights
-weights = center_weights(19, 19)
-black_score, white_score = score(pos, weights)
+# Score with different weights
+board = BoardSize(19, 19)
+weights = CenterSquareWeight().as_matrix(board)
+black_score, white_score = score(position, weights)
 print(f"Black: {black_score}, White: {white_score}")
 ```
 
-## Core Components
-
-### weighted_go.core
-- `Board`: Board state management
-- `GamePosition`: Game state with move validation and captures
-- `Stone`: Enum for Black, White, Empty
-- Weight functions: `uniform_weights()`, `center_weights()`, `aggressive_center_weights()`
-- `score()`: Area scoring ensuring Black + White = total board weight
-- `find_territory()`: Territory detection via flood-fill
-
-### weighted_go.sgf_reader
-- `read_sgf()`: Parse SGF strings
-- `read_sgf_file()`: Load from file
-- Handles handicap stones (AB/AW properties)
-- Validates final positions
-
-### weighted_go.visualization
-- `print_board_with_territory()`: Display board with territory markers
-- `get_board_string()`: Get string representation
-- Unicode symbols: ● ○ ■ □ ⬕
-- Standard Go convention: Column labels skip 'I' (A-H, J-T)
-
-## Weight Schemes
-
-Weighted Go provides a flexible weight system with both high-level and low-level APIs.
-
-### Using Standard Weights
-
-```python
-from weighted_go import (
-    UniformWeight,
-    CenterSquareWeight,
-    CenterDiamondWeight,
-    BoardSize,
-)
-
-# Create a board size
-board = BoardSize(19, 19)
-
-# Use standard weights
-uniform = UniformWeight()
-center_sq = CenterSquareWeight()
-center_dia = CenterDiamondWeight()
-
-# Get weight matrix for scoring
-weights = center_sq.as_matrix(board)
-black_score, white_score = score(game_pos, weights)
-```
-
-### Standard Weight Schemes
-
-**Uniform (Standard Go)**
-- All positions have weight 1.0
-- Total weight on 19x19: 361
-
-**Center: Square**
-- Moderate rewards for central positions
-- Formula: `w[i][j] = 1 + min(dist_from_row_edge, dist_from_col_edge)`
-- Forms concentric square pattern
-- Total weight on 19x19: 1,330
-
-**Center: Diamond**
-- Strong rewards for center
-- Formula: `w[i][j] = 1 + dist_from_row_edge + dist_from_col_edge`
-- Forms concentric diamond pattern
-- Total weight on 19x19: 3,439
-
 ### Custom Weights
 
-Create custom weight schemes using `FunctionWeight`:
-
 ```python
-from weighted_go import FunctionWeight, BoardSize
+from weighted_go import FunctionWeight, BoardSize, score
 
-def edge_weight(row, col, board_size):
-    """Emphasize edges over center."""
+def edge_emphasis(row, col, board_size):
+    """Weight edges more than center."""
     dist = min(row, col, board_size.rows-1-row, board_size.cols-1-col)
     return 10.0 - dist
 
-custom = FunctionWeight("Edge Emphasis", edge_weight)
+custom = FunctionWeight("Edge Emphasis", edge_emphasis)
 weights = custom.as_matrix(BoardSize(19, 19))
+black_score, white_score = score(position, weights)
 ```
 
-See `examples/cli/weight_system_demo.py` for more examples.
+See [docs/weights.md](docs/weights.md) for details on implemented weight schemes.
+
+## Weight Schemes
+
+The package includes three standard weight schemes:
+- **Uniform (Standard)**: All positions weight 1.0 (standard Go)
+- **Center: Square**: Moderate center bias with concentric square pattern
+- **Center: Diamond**: Strong center bias with concentric diamond pattern
+
+See [docs/weights.md](docs/weights.md) for formulas, visualizations, and examples.
 
 ## Testing
 
-Run all tests (71 total):
 ```bash
+# All tests (71 total)
 pytest tests/ -v
-```
 
-Run specific test modules:
-```bash
+# Specific modules
 pytest tests/test_core.py -v        # 47 tests
 pytest tests/test_sgf_reader.py -v  # 24 tests
 ```
@@ -185,66 +115,22 @@ pytest tests/test_sgf_reader.py -v  # 24 tests
 ## Examples
 
 ```bash
-# Basic usage examples
+# Basic usage
 PYTHONPATH=. python examples/cli/basic_usage.py
 
-# SGF reading examples
+# SGF reading
 PYTHONPATH=. python examples/cli/sgf_usage.py
 
-# Color/ANSI demonstration
-PYTHONPATH=. python examples/cli/color_demo.py
-
-# Analyze real games with detailed output
-./run_cli.sh data/game.sgf --full
+# Weight system demonstration
+PYTHONPATH=. python examples/cli/weight_system_demo.py
 ```
-
-## Area Scoring
-
-Weighted Go uses **Chinese-style area scoring** where every point on the board belongs to Black, White, or is shared (contested territory split 50-50).
-
-This ensures: **Black_score + White_score = Total board weight**
-
-For a 19×19 board:
-- Uniform weights: 361 total
-- Center weights: 1,330 total
-- Aggressive weights: 3,439 total
-
-See [docs/AREA_SCORING.md](docs/AREA_SCORING.md) for details.
-
-## Implementation Details
-
-- Groups detected via depth-first search
-- Automatic capture when groups lose all liberties
-- Suicide prevention (unless it captures opponent stones)
-- Territory detection via flood-fill algorithm
-- Contested territory (touching both colors) split 50-50
-- SGF parser handles main path only, supports handicap stones
-- Position validation ensures all groups have ≥1 liberty
-
-## Project Structure
-
-```
-weighted_go/
-├── weighted_go/          # Main package
-│   ├── core/             # Core game logic
-│   ├── commons/          # Shared resources (symbols, colors)
-│   ├── cli/              # CLI tools
-│   └── gui/              # GUI application
-├── tests/                # Test suite (71 tests)
-├── examples/             # Example scripts
-│   ├── cli/              # CLI examples
-│   └── gui/              # GUI examples
-├── docs/                 # Documentation
-├── data/                 # Sample SGF files
-├── run_cli.sh            # CLI launcher script
-└── run_gui.sh            # GUI launcher script
-```
-
-See [CLAUDE.md](CLAUDE.md) for detailed architecture and development guidance.
 
 ## Documentation
 
-- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) - Project organization
-- [docs/AREA_SCORING.md](docs/AREA_SCORING.md) - Area scoring explanation
-- [docs/WEIGHT_SCHEMES.md](docs/WEIGHT_SCHEMES.md) - Weight scheme details
-- [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md) - Real game analysis
+- [docs/weights.md](docs/weights.md) - Weight scheme details and formulas
+- [CLAUDE.md](CLAUDE.md) - Development guide and architecture
+- [docs/AREA_SCORING.md](docs/AREA_SCORING.md) - Scoring algorithm details
+
+## TODO
+
+- Build standalone applications (.app, .exe) for GUI distribution
