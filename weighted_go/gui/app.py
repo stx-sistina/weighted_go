@@ -507,6 +507,7 @@ class WeightedGoApp:
             self.file_label.config(text=self.original_file_name, foreground=FILE_LABEL_NORMAL_COLOR)
             self.info_label.config(text=f"Board: {rows}×{cols}")
             self.update_game_info()
+            self.update_edit_mode_label()  # Update alternating color label
 
             # Calculate and display scores
             self.update_scores()
@@ -1071,8 +1072,12 @@ class WeightedGoApp:
                 # Clear invalid groups
                 self.invalid_groups.clear()
 
-                # Reset backup since board size changed
-                self.edit_session_backup = None
+                # Create new backup for the empty board (so revert works)
+                self.edit_session_backup = GamePosition(rows, cols)
+                self.backup_original_file_name = ""
+                self.backup_next_stone_color = Stone.BLACK
+                self.backup_board_rows = rows
+                self.backup_board_cols = cols
 
                 self.redraw_board()
                 dialog.destroy()
