@@ -121,10 +121,27 @@ class WeightedGoApp:
         # Update scroll region when frame size changes
         def on_frame_configure(_event):
             canvas.configure(scrollregion=canvas.bbox("all"))
+            # Show/hide scrollbar based on whether content exceeds canvas height
+            bbox = canvas.bbox("all")
+            if bbox:
+                content_height = bbox[3] - bbox[1]
+                canvas_height = canvas.winfo_height()
+                if content_height > canvas_height:
+                    scrollbar.grid()
+                else:
+                    scrollbar.grid_remove()
 
         def on_canvas_configure(event):
             # Update the width of the frame to match canvas width
             canvas.itemconfig(canvas_window, width=event.width)
+            # Check if scrollbar is needed after canvas resize
+            bbox = canvas.bbox("all")
+            if bbox:
+                content_height = bbox[3] - bbox[1]
+                if content_height > event.height:
+                    scrollbar.grid()
+                else:
+                    scrollbar.grid_remove()
 
         control_frame.bind("<Configure>", on_frame_configure)
         canvas.bind("<Configure>", on_canvas_configure)
