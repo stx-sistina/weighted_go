@@ -4,7 +4,7 @@ A Go variant where each board intersection has a configurable weight. Implements
 
 **This package provides tools for analyzing and scoring Go games with custom weight schemes. It does not offer gameplay.**
 
-## GUI Application
+## Usage
 
 Launch the GUI:
 ```bash
