@@ -136,5 +136,8 @@ Thumbs.db
 # Project specific
 *.pyc
 
+# Release packages
+releases/
+
 # TODO
 TODO.md
