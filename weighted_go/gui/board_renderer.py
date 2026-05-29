@@ -402,6 +402,9 @@ class BoardRenderer:
         if not self.board:
             return
 
+        # Calculate layout first to ensure cell_size is correct for current board
+        self.calculate_layout()
+
         # Get weight matrix from Weight object
         from ..core import BoardSize
         board_size = BoardSize(self.board.rows, self.board.cols)
