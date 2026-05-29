@@ -4,13 +4,13 @@ A Go variant where each board intersection has a configurable weight. Implements
 
 **This package provides tools for analyzing and scoring Go games with custom weight schemes. It does not offer gameplay.**
 
-## Download (No Python Required!)
+<!-- ## Download (No Python Required!)
 
 **Want to just use the app?** Download pre-built binaries from [GitHub Releases](../../releases):
 - **macOS**: Download `.zip`, extract, and run `Weighted Go.app`
 - **Windows**: Download `.zip`, extract, and run `Weighted Go.exe`
 
-No Python installation needed!
+No Python installation needed! -->
 
 ## Usage
 
