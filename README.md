@@ -8,7 +8,7 @@ A Go variant where each board intersection has a configurable weight. Implements
 
 Launch the GUI:
 ```bash
-./run_gui.sh
+./scripts/run_gui.sh
 # or
 python -m weighted_go.gui.run_gui
 ```
@@ -52,12 +52,12 @@ See [docs/weights.md](docs/weights.md) for formulas, visualizations, and example
 
 Analyze a game from SGF:
 ```bash
-./run_cli.sh data/game.sgf
+./scripts/run_cli.sh data/game.sgf
 # or
 python -m weighted_go.cli.analyze_game data/game.sgf
 
 # Show detailed board state
-./run_cli.sh data/game.sgf --full
+./scripts/run_cli.sh data/game.sgf --full
 ```
 
 Example output:
