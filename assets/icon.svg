@@ -1,77 +1,92 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Goban background -->
-  <rect x="0" y="0" width="512" height="512" fill="#DCB35C"/>
-
+<svg width="800" height="800" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
   <!-- Calculations:
-       - Bounding box: 512×512, stroke-width=92 (extends 46px inward each side)
-       - Inner box: 420×420 (from 46 to 466)
+       - Canvas: 800×800 (for macOS rounded corners)
+       - Icon: 512×512 centered → offset = 144px
+       - Bounding box: 512×512, stroke-width=64 (extends 32px inward each side)
+       - Inner box: 420×420 (offset to 190 to 610 in canvas coords)
        - Grid size: 420/3 = 140px
-       - Mini-board: 2×grid = 280×280
        - Stone diameter: 0.9×grid = 126px, radius = 63px
-       - Grid offset: (420-280)/2 + 46 = 116px
-       - Intersections at: 116, 256, 396
+       - Intersections at: 260, 400, 540 (canvas coords)
   -->
 
-  <!-- Heatmap cells: 3×3 grid, each 140×140, filling inner box from 46 to 466 -->
-  <!-- Flipped vertically: Cartesian (col, row) with row 0 at bottom -->
+  <!-- Background gradient (linear, light source from above) -->
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F0F0F0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D0D0D0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
 
-  <!-- Row 0 (bottom, Cartesian) = SVG y from 326 to 466 -->
+  <!-- Full canvas background with gradient -->
+  <rect x="0" y="0" width="800" height="800" fill="url(#backgroundGradient)"/>
+
+  <!-- Goban background (adjusted for 64px stroke keeping inner edge at 190) -->
+  <rect x="158" y="158" width="484" height="484" fill="#DCB35C"/>
+
+  <!-- Heatmap cells: 3×3 grid, each 140×140 -->
+  <!-- All coordinates offset by +104 from original -->
+
+  <!-- Row 0 (bottom, Cartesian) -->
   <!-- (0,0): Green-yellow (neutral) -->
-  <rect x="46" y="326" width="140" height="140" fill="#B8D84E"/>
+  <rect x="190" y="470" width="140" height="140" fill="#B8D84E"/>
   <!-- (1,0): Light orange (slight positive) -->
-  <rect x="186" y="326" width="140" height="140" fill="#FFCC66"/>
+  <rect x="330" y="470" width="140" height="140" fill="#FFCC66"/>
   <!-- (2,0): Orange (positive) -->
-  <rect x="326" y="326" width="140" height="140" fill="#FF9933"/>
+  <rect x="470" y="470" width="140" height="140" fill="#FF9933"/>
 
-  <!-- Row 1 (middle, Cartesian) = SVG y from 186 to 326 -->
+  <!-- Row 1 (middle, Cartesian) -->
   <!-- (0,1): Very light blue (slight negative) -->
-  <rect x="46" y="186" width="140" height="140" fill="#AED6F1"/>
+  <rect x="190" y="330" width="140" height="140" fill="#AED6F1"/>
   <!-- (1,1): Green-yellow (neutral) -->
-  <rect x="186" y="186" width="140" height="140" fill="#B8D84E"/>
+  <rect x="330" y="330" width="140" height="140" fill="#B8D84E"/>
   <!-- (2,1): Light orange (slight positive) -->
-  <rect x="326" y="186" width="140" height="140" fill="#FFCC66"/>
+  <rect x="470" y="330" width="140" height="140" fill="#FFCC66"/>
 
-  <!-- Row 2 (top, Cartesian) = SVG y from 46 to 186 -->
+  <!-- Row 2 (top, Cartesian) -->
   <!-- (0,2): Light blue (negative) -->
-  <rect x="46" y="46" width="140" height="140" fill="#5DADE2"/>
+  <rect x="190" y="190" width="140" height="140" fill="#5DADE2"/>
   <!-- (1,2): Very light blue (slight negative) -->
-  <rect x="186" y="46" width="140" height="140" fill="#AED6F1"/>
+  <rect x="330" y="190" width="140" height="140" fill="#AED6F1"/>
   <!-- (2,2): Green-yellow (neutral) -->
-  <rect x="326" y="46" width="140" height="140" fill="#B8D84E"/>
+  <rect x="470" y="190" width="140" height="140" fill="#B8D84E"/>
 
-  <!-- Grid lines (softer gray, thinner stroke, extended 1px each direction) -->
+  <!-- Grid lines (all coordinates +144) -->
   <!-- Horizontal lines -->
-  <line x1="115" y1="116" x2="397" y2="116" stroke="#666666" stroke-width="2"/>
-  <line x1="115" y1="256" x2="397" y2="256" stroke="#666666" stroke-width="2"/>
-  <line x1="115" y1="396" x2="397" y2="396" stroke="#666666" stroke-width="2"/>
+  <line x1="259" y1="260" x2="541" y2="260" stroke="#666666" stroke-width="2"/>
+  <line x1="259" y1="400" x2="541" y2="400" stroke="#666666" stroke-width="2"/>
+  <line x1="259" y1="540" x2="541" y2="540" stroke="#666666" stroke-width="2"/>
 
   <!-- Vertical lines -->
-  <line x1="116" y1="115" x2="116" y2="397" stroke="#666666" stroke-width="2"/>
-  <line x1="256" y1="115" x2="256" y2="397" stroke="#666666" stroke-width="2"/>
-  <line x1="396" y1="115" x2="396" y2="397" stroke="#666666" stroke-width="2"/>
+  <line x1="260" y1="259" x2="260" y2="541" stroke="#666666" stroke-width="2"/>
+  <line x1="400" y1="259" x2="400" y2="541" stroke="#666666" stroke-width="2"/>
+  <line x1="540" y1="259" x2="540" y2="541" stroke="#666666" stroke-width="2"/>
 
-  <!-- Stones (radius = 63) -->
-  <!-- Cartesian coords → SVG coords: (col, row) → (116 + col*140, 396 - row*140) -->
+  <!-- Stones (radius = 63, all coordinates +144) -->
+  <!-- Positions: 260, 400, 540 -->
 
-  <!-- (B, 1, 0) → (256, 396) -->
-  <circle cx="256" cy="396" r="63" fill="#000000" stroke="#333333" stroke-width="5"/>
+  <!-- (B, 0, 2) -->
+  <circle cx="260" cy="260" r="63" fill="#000000" stroke="#333333" stroke-width="5"/>
 
-  <!-- (W, 0, 1) → (116, 256) -->
-  <circle cx="116" cy="256" r="63" fill="#FFFFFF" stroke="#999999" stroke-width="5"/>
+  <!-- (B, 1, 0) -->
+  <circle cx="400" cy="540" r="63" fill="#000000" stroke="#333333" stroke-width="5"/>
 
-  <!-- (W, 1, 1) → (256, 256) -->
-  <circle cx="256" cy="256" r="63" fill="#FFFFFF" stroke="#999999" stroke-width="5"/>
+  <!-- (W, 0, 1) -->
+  <circle cx="260" cy="400" r="63" fill="#FFFFFF" stroke="#999999" stroke-width="5"/>
 
-  <!-- (B, 2, 1) → (396, 256) -->
-  <circle cx="396" cy="256" r="63" fill="#000000" stroke="#333333" stroke-width="5"/>
+  <!-- (W, 1, 1) -->
+  <circle cx="400" cy="400" r="63" fill="#FFFFFF" stroke="#999999" stroke-width="5"/>
 
-  <!-- (B, 1, 2) → (256, 116) -->
-  <circle cx="256" cy="116" r="63" fill="#000000" stroke="#333333" stroke-width="5"/>
+  <!-- (B, 2, 1) -->
+  <circle cx="540" cy="400" r="63" fill="#000000" stroke="#333333" stroke-width="5"/>
 
-  <!-- (W, 2, 0) → (396, 396) -->
-  <circle cx="396" cy="396" r="63" fill="#FFFFFF" stroke="#999999" stroke-width="5"/>
+  <!-- (W, 1, 2) -->
+  <circle cx="400" cy="260" r="63" fill="#FFFFFF" stroke="#999999" stroke-width="5"/>
 
-  <!-- Outer frame (goban border) -->
-  <rect x="0" y="0" width="512" height="512" fill="none" stroke="#C8A86E" stroke-width="92"/>
+  <!-- (W, 2, 0) -->
+  <circle cx="540" cy="540" r="63" fill="#FFFFFF" stroke="#999999" stroke-width="5"/>
+
+  <!-- Outer frame (goban border, 64px stroke keeping inner edge at 190) -->
+  <!-- Rect at 158,158 with size 484x484, stroke 64 → inner edge at 158+32=190, outer edge at 158-32=126 -->
+  <rect x="158" y="158" width="484" height="484" fill="none" stroke="#CDA55A" stroke-width="64"/>
 </svg>
