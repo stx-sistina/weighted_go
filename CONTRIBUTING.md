@@ -31,7 +31,7 @@ pytest tests/test_sgf_reader.py -v  # 24 tests
 
 ```bash
 # From project root
-./run_gui.sh
+./scripts/run_gui.sh
 # or
 python -m weighted_go.gui.run_gui
 # or
@@ -45,7 +45,7 @@ python run_app.py
 Build a standalone .app bundle:
 
 ```bash
-./build_macos.sh
+./scripts/build_macos.sh
 ```
 
 This creates `dist/Weighted Go.app` which can be distributed without requiring Python installation.
@@ -65,7 +65,33 @@ open "dist/Weighted Go.app"
 
 ### Windows
 
-**Coming Soon** - Windows .exe build instructions
+Build a standalone .exe:
+
+**Using PowerShell (recommended):**
+```powershell
+.\scripts\build_windows.ps1
+```
+
+**Using Command Prompt:**
+```batch
+.\scripts\build_windows.bat
+```
+
+**Requirements:**
+- PyInstaller 6.0+ (`pip install pyinstaller`)
+- Python 3.8+ (tested with 3.13)
+
+**Output:**
+- `dist\Weighted Go\Weighted Go.exe` - Standalone Windows application
+- `dist\Weighted Go\` - Directory contains .exe and all dependencies
+- `build\` - Intermediate build files (can be deleted)
+
+**Testing:**
+```powershell
+.\dist\Weighted Go\Weighted Go.exe
+```
+
+**Note:** These scripts were created on macOS and are untested on Windows. Please report any issues!
 
 ### Manual Build
 

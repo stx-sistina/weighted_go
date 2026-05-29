@@ -29,15 +29,20 @@ pytest tests/test_sgf_reader.py -v  # 24 SGF tests
 ### Running the Application
 ```bash
 # Analyze an SGF file (CLI)
-./run_cli.sh data/[game_file].sgf
-./run_cli.sh data/[game_file].sgf --full  # Show detailed boards
+./scripts/run_cli.sh data/[game_file].sgf
+./scripts/run_cli.sh data/[game_file].sgf --full  # Show detailed boards
 # Or directly:
 python -m weighted_go.cli.analyze_game data/[game_file].sgf
 
 # Launch GUI
-./run_gui.sh
+./scripts/run_gui.sh
 # Or directly:
 python -m weighted_go.gui.run_gui
+
+# Build standalone applications
+./scripts/build_macos.sh      # macOS .app bundle
+./scripts/build_windows.bat   # Windows .exe (untested)
+./scripts/build_windows.ps1   # Windows .exe (PowerShell, untested)
 
 # Run examples
 PYTHONPATH=. python examples/cli/basic_usage.py
