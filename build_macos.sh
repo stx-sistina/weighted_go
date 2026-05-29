@@ -15,6 +15,7 @@ python -m PyInstaller \
     --name "Weighted Go" \
     --windowed \
     --clean \
+    --icon assets/icon.png \
     run_app.py
 
 echo ""
